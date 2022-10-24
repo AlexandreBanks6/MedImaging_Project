@@ -59,10 +59,12 @@ while hasFrame(vidReader)
                 end
                 minVal=min(DistMeas);
                 minIndex=find(DistMeas==minVal);
-                Centroids{i,minIndex}=centers(minIndex,:);
+                Centroids{i,k}=centers(minIndex,:);
             end
             Centroids{i,CentSizeOld+1:CentSizeNew}=[0 0];
 
+        elseif CentSizeOld>CentSizeNew %We have lost a centroid
+            
         else %Number of new centroids equals old centroids
             DistMeas=zeros(1,CentSizeNew);
             for k=1:CentSizeOld %Looping through each old centroid
@@ -71,7 +73,7 @@ while hasFrame(vidReader)
                 end
                 minVal=min(DistMeas);
                 minIndex=find(DistMeas==minVal);
-                Centroids{i,minIndex}=centers(minIndex,:);
+                Centroids{i,k}=centers(minIndex,:);
             end
         end
 
