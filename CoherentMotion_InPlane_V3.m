@@ -51,8 +51,13 @@ while hasFrame(vidReader)
             Centroids{1,k}=centers(k,:);
         end
     else
-        if CentSizeOld<CentSizeNew  %We have new centroids detected
+        if CentSizeOld==0 %The old size was zero, so we just plug in the centroids
+            for j=CentSizeNew
+                Centroids{i,j}=centers(j,:);
+            end
+        elseif CentSizeOld<CentSizeNew  %We have new centroids detected
             DistMeas=zeros(1,CentSizeNew);
+            UsedCenters=zeros(CentSizeOld,2);
             for k=1:CentSizeOld %Looping through each old centroid
                 for j=1:CentSizeNew     %We check each new center against one old center
                     DistMeas(j)=sqrt((centers(j,1)-Centroids{i-1,k}(1))^2+(centers(j,2)-Centroids{i-1,k}(2))^2);
@@ -60,10 +65,20 @@ while hasFrame(vidReader)
                 minVal=min(DistMeas);
                 minIndex=find(DistMeas==minVal);
                 Centroids{i,k}=centers(minIndex,:);
-            end
-            Centroids{i,CentSizeOld+1:CentSizeNew}=[0 0];
+                UsedCenters(k,:)=centers(minIndex,:);
 
+            end
+            RemCenters=centers(~(centers(:,1)==UsedCenters(:,1)),:);
+            for k=CentSizeOld+1:CentSizeNew
+                Centroids{i,k}=RemCenters(k-CentSizeOld,:);
+            end
         elseif CentSizeOld>CentSizeNew %We have lost a centroid
+            for k=1:CentSizeNew %We compare each old center against a new
+                DistMeas=zeros(1,CentSizeNew);
+                for j=1:CentSizeOld
+
+                end
+            end
             
         else %Number of new centroids equals old centroids
             DistMeas=zeros(1,CentSizeNew);
