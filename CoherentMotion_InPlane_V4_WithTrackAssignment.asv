@@ -27,12 +27,7 @@ for i = 1:NumTracks %Loops for the number of trajectories we have
     
     %For now we are using euclidean distance, but we can possible use some
     %type of frequency based (histogram) method as well
-    if(size(score,1)~=size(refscore,1))
-        refval=refscore(1:size(score,1),:);
-    else
-        refval=refscore;
-    end
-    distMeas(i)=sqrt(sum((score(:,1)-refval(:,1)).^2+(score(:,2)-refval(:,2)).^2));
+    distMeas(i)=sqrt(sum((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2));
 end
 
 ToolTipInd=distMeas==min(distMeas);
