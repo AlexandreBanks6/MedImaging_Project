@@ -1,12 +1,10 @@
+%% Reading Data and Preprocessing
 clear
 clc
 close all
 
-%% Reading Data and Preprocessing
-
 datapath=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
-
 Data=readmatrix(datapath);
 Data2=readtable(datapath);
 
@@ -39,8 +37,8 @@ t_us=t_us-t_us(1); %Zeros the time measurements
 
 %% DVRK Position to Frame Correlation
 total_frame_num=frame_no(end)-frame_no(1);
-robot_data=zeros(total_frame_num,4); %Preallocation, array of x,y,z,rotorangle
-time_vec=zeros(total_frame_num,1); %Preallocation, array of time vector
+robot_data=[]; %Array of x,y,z,rotorangle
+time_vec=[]; %array of time vector
 nan_vals=find(isnan(t_dvrk)==1);
 nan_vals=[0;nan_vals];
 for i=1:length(frame_no)-1
@@ -50,23 +48,34 @@ for i=1:length(frame_no)-1
     
     %Sorting Time Segment into increasing Order
     [time_seg,sort_ind]=sort(time_seg);
-    time_seg=time_seg-time_seg(1);
 
     %Sorting tool data segment
     robot_data_seg=[psm1_pos(nan_vals(i)+1:nan_vals(i+1)-1,:),probe_angle(nan_vals(i)+1:nan_vals(i+1)-1,:)];
     robot_data_seg=robot_data_seg(sort_ind,:);
     
     %Finding number of steps between existing frames
-    frame
+    frame_steps=floor(length(time_seg)/frame_diff);
     
     for j=[1:frame_diff] %Loops for the number of frames between missing frames
-        time_vec((i-1)*frame_diff+j)=t_us(i)+time_seg(j*)
-
+        time_vec=[time_vec;time_seg((j-1)*frame_steps+1)];
+        robot_data=[robot_data;robot_data_seg((j-1)*frame_steps+1,:)];
 
     end
 
 end
 
+%Adding final segment
+time_seg=t_dvrk(nan_vals(i)+1:nan_vals(i+1)-1);
+[time_seg,sort_ind]=sort(time_seg);
+robot_data_seg=[psm1_pos(nan_vals(i)+1:nan_vals(i+1)-1,:),probe_angle(nan_vals(i)+1:nan_vals(i+1)-1,:)];
+robot_data_seg=robot_data_seg(sort_ind,:);
+
+
+%Return Values
+
+time_vec=[time_vec;time_seg(1)];
+robot_data=[robot_data;robot_data_seg(1,:)];
+frame_vec=[frame_no(1):frame_no(end)]';
 
 
 

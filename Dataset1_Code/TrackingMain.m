@@ -1,51 +1,32 @@
-clear
+clear 
 clc
-
 close all
-VidName='BallsRolling_Trim.mp4';
-tracks=TrackDetect(VidName);
-NumTracks=length(tracks);
-%%
-%Reference Track, This can be changed later to our da Vinci output (we
-%apply rotation and noise to mess up the track a bit)
-reftrack=tracks(2).TotalTrack;
-reftrack=interpolator(reftrack); %Fills any zeros in reference track
-oldtrack=reftrack;
-theta=pi/9;
-R=[cos(theta) -sin(theta);sin(theta) cos(theta)];
-reftrack=reftrack*R;
-reftrack=reftrack+randn(size(reftrack,1),size(reftrack,2)); 
 
-[refcoeff,refscore,reflatent]=pca(reftrack);
+% Reading Data
+
+%datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+    %'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
+datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
+    '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
+
+%[time_vec,frame_vec,robot_data]=DaVinciToolData_Processing(datapath_robot); %Interpolates the da Vinci data, to match the US frames
+
+%dvrk_xyz=robot_data(:,[1:3]); %End-effector xyz
+first_frame=1;
+
+% Finding Tracks
+tracks=TrackDetect(datapath_video,first_frame);
 
 
-distMeas=zeros(1,NumTracks); %Stores the distance measures
 
-for i = 1:NumTracks %Loops for the number of trajectories we have 
-    traj=tracks(i).TotalTrack; %Extracts array of trajectory for a given track
-    traj=interpolator(traj); %Interpolates missing points
-    [coeff,score,latent]=pca(traj); %Returns projected principle components in "score"
-    
-    %For now we are using euclidean distance, but we can possible use some
-    %type of frequency based (histogram) method as well
-    if(size(score,1)~=size(refscore,1))
-        refval=refscore(1:size(score,1),:);
-    else
-        refval=refscore;
-    end
-    distMeas(i)=sqrt(sum((score(:,1)-refval(:,1)).^2+(score(:,2)-refval(:,2)).^2));
-end
 
-ToolTipInd=distMeas==min(distMeas);
 
-%% Functions
-function tracks=TrackDetect(VidName)
+
+
+
+function tracks=TrackDetect(datapath,first_frame)
     % Reading in Video
-    vidReader=VideoReader(VidName); %Create an object with the video
-    
-    % Creating a optical flow object using Lucas-Kanade Method
-    opticFlow=opticalFlowLK('NoiseThreshold',0.001); %Increasing number means movement of object has less impact on calculation 
-    
+    vidReader=VideoReader(datapath); %Create an object with the video
     % Setting up the Object which contains the tracks
     %{
     ID=integer ID of the track
@@ -58,25 +39,25 @@ function tracks=TrackDetect(VidName)
     %}
     tracks=struct('id',{},'Centroid',{},'kalmanFilter',{},...
                     'age',{},'totalVisibleCount',{},'consecutiveInvisibleCount',{},'TotalTrack',{});
-
-    %tracks=struct('id',{},'Centroid',{},'kalmanFilter',{},'age',{},'totalVisibleCount',{},...
-     %       'consecutiveInvisibleCount',{});
     nextId=1; %This is the ID of the next track
     
-    
+    %Setting up Optic Flow Object
+     opticFlow=opticalFlowLK('NoiseThreshold',0.001); %Increasing number means movement of object has less impact on calculation
     
     % Looping Through Video Frames
     
     m=1;
     while hasFrame(vidReader)
         frame=readFrame(vidReader);
-        [centroids,Mask,radii]=detectObjects(frame);
-        predictNewLocationsOfTracks();
-        [assignments,unassignedTracks,unassignedDetections]=detectionToTrackAssignment();
-        updateAssignedTracks();
-        updateUnassignedTracks();
-        deleteLostTracks();
-        createNewTracks();        
+        if m>=first_frame
+            [centroids,Mask,radii]=detectObjects(frame);
+            predictNewLocationsOfTracks();
+            [assignments,unassignedTracks,unassignedDetections]=detectionToTrackAssignment();
+            updateAssignedTracks();
+            updateUnassignedTracks();
+            deleteLostTracks();
+            createNewTracks();
+        end
     
         disp(m); m=m+1;
     end
@@ -84,21 +65,24 @@ function tracks=TrackDetect(VidName)
     
     function [centroids,Mask,radii]=detectObjects(frameRGB)
         % Parameters
-        VelThresh=0.075; %Threshold for velocity magnitudes that are not considered movement
-        MinObArea=25; %Used to remove all objects with less than this value of connected pixels
-        radmin=30;
-        radmax=100;
+        VelThresh=1; %Threshold for velocity magnitudes that are not considered movement
+        radmin=8;
+        radmax=30;
         HughSensit=0.8;
-        
-        frameGray=im2gray(frameRGB);
+
+        CropRec=[1607.51,85.51,883.98,740.98];
+        frameCropped=imcrop(frameRGB,CropRec); %Crops just the US portion of the image
+        frameGray=rgb2gray(frameCropped);
+
         flow=estimateFlow(opticFlow,frameGray);
-        GrayNew=imopen(flow.Magnitude,strel('disk',1)); %Performs erosion then dilation (morph op)
-        Mask=imbinarize(GrayNew,VelThresh); %Sets Pixels with velocity above threshold to 1
-        
-        Mask=imclose(Mask,strel('disk',3)); %Performs a dilation then an erosion (morph op)
-        Mask=bwareaopen(Mask,MinObArea); %Any objects with area smaller than MinObArea are discarded
+        Mask=imbinarize(flow.Magnitude,VelThresh);
+
+        Mask=imopen(Mask,strel('disk',2));
         [centroids,radii,metric]=imfindcircles(Mask,[radmin radmax],'Sensitivity',HughSensit);
-    
+        imshow(Mask);
+        viscircles(centroids,radii);
+        pause(0.01);
+            
     end
     
     
@@ -145,7 +129,7 @@ function tracks=TrackDetect(VidName)
                 cost(i,:)=distance(tracks(i).kalmanFilter,centroids); %This finds distance between centroids and tracks, we can adjust thie algorithm to go faster using weights (see the documentation for this)
             end
         
-            costOfNonAssignment=20;
+            costOfNonAssignment=200;
         
             %assigns detections to tracks using the James Munkres variant of the
             %Hungarian algorithm
@@ -163,15 +147,7 @@ function tracks=TrackDetect(VidName)
                 trackIdx=assignments(i,1); %The index of the track from the assignment detection algorithm
                 detectionIdx=assignments(i,2);
                 centroid=centroids(detectionIdx,:);
-                %CentroidStruct{trackIdx,m}=centroids(detectionIdx,:); %Adds the detection to the track
-                %{
-                if(m==1)
-                    tracks(trackIdx).TotalTrack{1}=centroid;
-                else
-                %}
-                %tracks(trackIdx).TotalTrack{tracks(trackIdx).age+1}=centroid;
                 tracks(trackIdx).TotalTrack=[tracks(trackIdx).TotalTrack;centroid];
-                %Correct the estimate of the object's location using detection
                 correct(tracks(trackIdx).kalmanFilter,centroid);
         
                 %update track's age
@@ -277,3 +253,7 @@ function [traj]=interpolator(traj)
     end
 
 end
+
+
+
+

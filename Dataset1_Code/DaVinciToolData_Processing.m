@@ -1,12 +1,6 @@
-clear
-clc
-close all
+function [time_vec,frame_vec,robot_data]=DaVinciToolData_Processing(datapath)
 
 %% Reading Data and Preprocessing
-
-datapath=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
-    'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
-
 Data=readmatrix(datapath);
 Data2=readtable(datapath);
 
@@ -126,4 +120,7 @@ t_new=zeros(row,1);
 for i=[1:row]
     t_new(i)=str2double(time_us(i,:));
 end
+end
+
+
 end
