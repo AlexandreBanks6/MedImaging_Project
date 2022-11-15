@@ -2,20 +2,60 @@ clear
 clc
 close all
 
-% Reading Data
+%% ---------------<Reading Data>---------------
 
-%datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
-    %'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
+datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+    'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
 datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
 
-%[time_vec,frame_vec,robot_data]=DaVinciToolData_Processing(datapath_robot); %Interpolates the da Vinci data, to match the US frames
+%t_dvrk is the old dvrk time, and time_us is the ultrasound time (the one
+%we use)
+[robot_data_resamp,t_dvrk,time_us]=dvrk_tooldat_function(datapath_video,datapath_robot,0); %Interpolates the da Vinci data, to match the US frames
 
-%dvrk_xyz=robot_data(:,[1:3]); %End-effector xyz
-first_frame=1;
+dvrk_xyz=robot_data_resamp(:,[1:3]); %End-effector xyz (this is the reference track)
 
 % Finding Tracks
-tracks=TrackDetect(datapath_video,first_frame);
+tracks=TrackDetect(datapath_video);
+
+
+%% ------------------------<Similarity Measure>----------------------------
+NumTracks=length(tracks); %The number of tracks detected
+
+% Prior to PCA we must standardize our data by subtracting the mean and
+% dividing by the standard deviation
+dvrk_xyz(:,1)=(dvrk_xyz(:,1)-mean(dvrk_xyz(:,1)))/std(dvrk_xyz(:,1));
+dvrk_xyz(:,2)=(dvrk_xyz(:,2)-mean(dvrk_xyz(:,2)))/std(dvrk_xyz(:,2));
+dvrk_xyz(:,3)=(dvrk_xyz(:,3)-mean(dvrk_xyz(:,3)))/std(dvrk_xyz(:,3));
+
+[refcoeff,refscore,reflatent]=pca(dvrk_xyz); %Returns the loading vectors (principles components)
+
+
+distMeas=zeros(1,NumTracks);
+
+for i = 1:NumTracks %Loops for the number of trajectories we have 
+    traj=tracks(i).TotalTrack; %Extracts array of trajectory for a given track
+    ZeroRows=traj(:,1)==0;
+    traj=traj(~ZeroRows,:); %Removes zeros
+    %Standardizing The Data
+    traj(:,1)=(traj(:,1)-mean(traj(:,1)))/std(traj(:,1));
+    traj(:,2)=(traj(:,2)-mean(traj(:,2)))/std(traj(:,2));
+    %PCA on the trajectory data
+    [coeff,score,latent]=pca(traj);
+
+    %We use the two-sample kolmogorov-smirnov test to quantify the
+    %similarity between the two data distributions (because they have
+    %different number of points (this can be changed later)
+
+    
+    [~,p1]=kstest2(score(:,1),refscore(:,1));
+    [~,p2]=kstest2(score(:,2),refscore(:,2));
+    distMeas(i)=(p1+p2)/2; %Smaller the p-value, more similar the distributions
+
+end
+
+min_indx=distMeas==min(distMeas);
+us_track=tracks(min_indx).TotalTrack;
 
 
 
@@ -24,7 +64,12 @@ tracks=TrackDetect(datapath_video,first_frame);
 
 
 
-function tracks=TrackDetect(datapath,first_frame)
+
+
+
+
+%% -----------------------<Function definitions>---------------------------
+function tracks=TrackDetect(datapath)
     % Reading in Video
     vidReader=VideoReader(datapath); %Create an object with the video
     % Setting up the Object which contains the tracks
@@ -49,15 +94,14 @@ function tracks=TrackDetect(datapath,first_frame)
     m=1;
     while hasFrame(vidReader)
         frame=readFrame(vidReader);
-        if m>=first_frame
-            [centroids,Mask,radii]=detectObjects(frame);
-            predictNewLocationsOfTracks();
-            [assignments,unassignedTracks,unassignedDetections]=detectionToTrackAssignment();
-            updateAssignedTracks();
-            updateUnassignedTracks();
-            deleteLostTracks();
-            createNewTracks();
-        end
+        [centroids,Mask,radii]=detectObjects(frame);
+        predictNewLocationsOfTracks();
+        [assignments,unassignedTracks,unassignedDetections]=detectionToTrackAssignment();
+        updateAssignedTracks();
+        updateUnassignedTracks();
+        deleteLostTracks();
+        createNewTracks();
+        
     
         disp(m); m=m+1;
     end

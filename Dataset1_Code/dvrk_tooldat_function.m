@@ -47,21 +47,23 @@ robot_data_resamp(:,4)=interp1(t_dvrk,robot_data(:,4),time_us,'spline');
 %---------------------<Plotting Results>------------------------
 if plot==1
     figure;
-    subplot(2,2,1)
+    subplot(2,2,1);
     plot(time_us,robot_data_resamp(:,1),'r',t_dvrk,robot_data(:,1),'b');
     title('x data resampled');
 
-    subplot(2,2,2)
+    subplot(2,2,2);
     plot(time_us,robot_data_resamp(:,2),'r',t_dvrk,robot_data(:,2),'b');
     title('y data resampled');
-    subplot(2,2,3)
+    subplot(2,2,3);
     plot(time_us,robot_data_resamp(:,3),'r',t_dvrk,robot_data(:,3),'b');
     title('z data resampled');
-    subplot(2,2,4)
+    subplot(2,2,4);
     plot(time_us,robot_data_resamp(:,4),'r',t_dvrk,robot_data(:,4),'b');
     title('roll angle data resampled');
 
-    
+    legend('Resampled','Actual');
+
+
 
 
 end
