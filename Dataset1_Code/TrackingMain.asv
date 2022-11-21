@@ -59,11 +59,11 @@ for i = 1:NumTracks %Loops for the number of trajectories we have
 end
 
 min_indx=distMeas==min(distMeas);
-min_indx=2;
+min_indx=[];
 us_track_raw=tracks(min_indx).TotalTrack; %With zeros
 frame_vec_raw=tracks(min_indx).framenum; %Vector of frames corresponding to point in the trajectory
 ZeroRows=us_track_raw(:,1)==0;
-us_track=us_track_raw(~ZeroRows,:); %Removes zeros from trajectory from US
+us_track=us_track(~ZeroRows,:); %Removes zeros from trajectory from US
 frame_vec=frame_vec_raw(~ZeroRows,:); %Vector of frames corresponding to nonzero locations in US
 
 

@@ -1,4 +1,11 @@
-function [robot_data_resamp,t_dvrk,time_us]=dvrk_tooldat_function(datapath_video,datapath_robot,plot)
+datapath_video=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+    'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Roll\Recorder_2_Nov11_20-07-22.mp4'];
+datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+   'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Roll\data.csv'];
+%datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+    %'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
+%datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
+    %'/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
 
 %--------------------<US Video Processing>----------------------
 vidReader=VideoReader(datapath_video);
@@ -39,15 +46,13 @@ robot_data=robot_data(sort_ind,:); %Sorts dvrk data correspondingly
 [t_dvrk,unique_ind,~]=unique(t_dvrk); %Eliminates duplicate time samples
 robot_data=robot_data(unique_ind,:); 
 robot_data_resamp=zeros(length(time_us),4);
-robot_data_resamp(:,1)=interp1(t_dvrk,robot_data(:,1),time_us,'spline');
-robot_data_resamp(:,2)=interp1(t_dvrk,robot_data(:,2),time_us,'spline');
-robot_data_resamp(:,3)=interp1(t_dvrk,robot_data(:,3),time_us,'spline');
-robot_data_resamp(:,4)=interp1(t_dvrk,robot_data(:,4),time_us,'spline');
-% robot_data_resamp(:,1)=resample(robot_data(:,1),t_dvrk,sec_per_frame);
+robot_data_resamp(:,1)=interp1(t_dvrk,robot_data(:,1),time_us,'linear');
+robot_data_resamp(:,2)=interp1(t_dvrk,robot_data(:,2),time_us,'linear');
+robot_data_resamp(:,3)=interp1(t_dvrk,robot_data(:,3),time_us,'linear');
+robot_data_resamp(:,4)=interp1(t_dvrk,robot_data(:,4),time_us,'linear');
 
-%---------------------<Plotting Results>------------------------
-if plot==1
-    figure;
+
+figure;
     subplot(2,2,1);
     plot(time_us,robot_data_resamp(:,1),'r',t_dvrk,robot_data(:,1),'b');
     title('x data resampled');
@@ -63,18 +68,3 @@ if plot==1
     title('roll angle data resampled');
 
     legend('Resampled','Actual');
-
-
-
-
-end
-
-
-end
-
-
-
-
-
-
-
