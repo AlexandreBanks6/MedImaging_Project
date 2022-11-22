@@ -9,6 +9,13 @@ datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\'
 datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
 
+% datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+%     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
+% datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
+%     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial3/Registration/Recorder_2_Nov11_19-57-18.mp4'];
+
+
+
 %t_dvrk is the old dvrk time, and time_us is the ultrasound time (the one
 %we use)
 [robot_data_resamp,t_dvrk,time_us]=dvrk_tooldat_function(datapath_video,datapath_robot,0); %Interpolates the da Vinci data, to match the US frames
@@ -19,18 +26,20 @@ dvrk_xyz=robot_data_resamp(:,[1:3]); %End-effector xyz (this is the reference tr
 tracks=TrackDetect(datapath_video);
 
 
+
+
 %% ------------------------<Similarity Measure>----------------------------
 NumTracks=length(tracks); %The number of tracks detected
 
 distMeas=zeros(1,NumTracks);
-
 for i = 1:NumTracks %Loops for the number of trajectories we have 
     traj=tracks(i).TotalTrack; %Extracts array of trajectory for a given track
     frame_vec=tracks(i).framenum; %Vector of frames corresponding to point in the trajectory
     
     %Only keeping the first 50 frames
-    frame_vec=frame_vec(frame_vec<=50);
-    traj=traj(frame_vec,:);
+    frame_vec_indx=frame_vec<=50;
+    frame_vec=frame_vec(frame_vec_indx);
+    traj=traj(frame_vec_indx,:);
 
     ZeroRows=traj(:,1)==0;
     traj=traj(~ZeroRows,:); %Removes zeros from trajectory from US
@@ -76,8 +85,9 @@ us_track_raw=tracks(min_indx).TotalTrack; %With zeros
 frame_vec_raw=tracks(min_indx).framenum; %Vector of frames corresponding to point in the trajectory
 
 %Only keeping the first 50 frames
-frame_vec=frame_vec_raw(frame_vec_raw<=50);
-us_track=us_track_raw(frame_vec,:);
+frame_vec_indx=frame_vec_raw<=50;
+frame_vec=frame_vec_raw(frame_vec_indx);
+us_track=us_track_raw(frame_vec_indx,:);
 
 
 ZeroRows=us_track(:,1)==0;
@@ -100,6 +110,7 @@ dvrk_z=(dvrk_xyz(frame_vec,3)-mean(dvrk_xyz(frame_vec,3)))/std(dvrk_xyz(frame_ve
 [refcoeff,refscore,reflatent]=pca([dvrk_x,dvrk_y,dvrk_z]);
 
 EuclidVec=sqrt((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2);
+
 Min_Nums=mink(EuclidVec,3); %Three smallest indecis
 Min1=find(EuclidVec==Min_Nums(1));
 Min2=find(EuclidVec==Min_Nums(2));
@@ -158,7 +169,7 @@ function tracks=TrackDetect(datapath)
     nextId=1; %This is the ID of the next track
     
     %Setting up Optic Flow Object
-     opticFlow=opticalFlowLK('NoiseThreshold',0.001); %Increasing number means movement of object has less impact on calculation
+    opticFlow=opticalFlowLK('NoiseThreshold',0.001); %Increasing number means movement of object has less impact on calculation
     
     % Looping Through Video Frames
     
@@ -208,6 +219,8 @@ function tracks=TrackDetect(datapath)
         
             for i=1:length(tracks)
                predictedCentroid=predict(tracks(i).kalmanFilter);
+               %viscircles(predictedCentroid,5,'Color','b');
+               %pause(0.5)
         
                predictedCentroid=int32(predictedCentroid);
                tracks(i).Centroid=predictedCentroid;
@@ -242,16 +255,22 @@ function tracks=TrackDetect(datapath)
             for i=1:nTracks
                 %------------<Maybe change tracks(i).kalmanFilter to
                 %tracks(i).Centroid
-                cost(i,:)=distance(tracks(i).kalmanFilter,centroids); %This finds distance between centroids and tracks, we can adjust thie algorithm to go faster using weights (see the documentation for this)
+                cost(i,:)=distance(tracks(i).kalmanFilter,centroids)*0.01; %This finds distance between centroids and tracks, we can adjust thie algorithm to go faster using weights (see the documentation for this)
+                %circlescenters=tracks(i).kalmanFilter.State([1,4],1);
+                %viscircles(circlescenters',5,'Color','g');
+                %pause(0.5)
             end
         
-            costOfNonAssignment=100000000;
+            %costOfNonAssignment=100000000;
+            unassignedTrackCost=10; %Cost of not assigning detection to track
+            unassignedDetectionCost=10000; %Cost of starting a new track for that detection
         
             %assigns detections to tracks using the James Munkres variant of the
             %Hungarian algorithm
             %Lowe the cost more likely a detection gets assigned to a track
-            [assignments,unassignedTracks,unassignedDetections]=assignDetectionsToTracks(cost,costOfNonAssignment);
+            [assignments,unassignedTracks,unassignedDetections]=assignDetectionsToTracks(cost,unassignedTrackCost,unassignedDetectionCost);
         
+            
     end
     
     
@@ -275,8 +294,8 @@ function tracks=TrackDetect(datapath)
                 tracks(trackIdx).totalVisibleCount=tracks(trackIdx).totalVisibleCount+1;
                 tracks(trackIdx).consecutiveInvisibleCount=0;
                 
-                viscircles(tracks(1).TotalTrack(end,:),5);
-                %pause(0.5)
+                viscircles(tracks(1).TotalTrack(end,:),5,'Color','b');
+                pause(0.5)
         
             end
         
@@ -303,7 +322,7 @@ function tracks=TrackDetect(datapath)
             %Also deletes recently created tracks that have been invisible for too
             %many frames overall
         
-            invisibleForTooLong=20;
+            invisibleForTooLong=30;
             ageThreshold=8;
         
             %compute fraction of track's age for where it was visible
@@ -330,7 +349,12 @@ function tracks=TrackDetect(datapath)
                 centroid=centroids_new(i,:);
                 %Creat a Kalman filter object (we can change this)
                 kalmanFilter=configureKalmanFilter('ConstantAcceleration',...
-                centroid,[1,1,1]*1e5,[25,10,10],25);
+                centroid,[2,5.175e3,9.377e3],[10,25,50]*1e2,0.02);
+
+%                 kalmanFilter=configureKalmanFilter('ConstantAcceleration',...
+%                 centroid,[2,5.175e3,9.377e3],[10,25,50]*1e3,0.001);
+%                 kalmanFilter=configureKalmanFilter('ConstantVelocity',...
+%                 centroid,[1,1]*1e5,[25,10],25);
         
                 %Create a new track
                 newTrack=struct('id',nextId,'Centroid',centroid,'kalmanFilter',kalmanFilter,...
