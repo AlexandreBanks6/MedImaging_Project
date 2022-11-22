@@ -164,6 +164,7 @@ function tracks=TrackDetect(datapath)
     consecutiveInvisibleCount=the number of consecutive frames where track
     was not detected
     %}
+    %bbox is also included as a test
     tracks=struct('id',{},'Centroid',{},'kalmanFilter',{},...
                     'age',{},'totalVisibleCount',{},'consecutiveInvisibleCount',{},'framenum',{},'TotalTrack',{});
     nextId=1; %This is the ID of the next track
@@ -219,8 +220,8 @@ function tracks=TrackDetect(datapath)
         
             for i=1:length(tracks)
                predictedCentroid=predict(tracks(i).kalmanFilter);
-               %viscircles(predictedCentroid,5,'Color','b');
-               %pause(0.5)
+%                viscircles(predictedCentroid,5,'Color','b');
+%                pause(0.5)
         
                predictedCentroid=int32(predictedCentroid);
                tracks(i).Centroid=predictedCentroid;
@@ -350,6 +351,11 @@ function tracks=TrackDetect(datapath)
                 %Creat a Kalman filter object (we can change this)
                 kalmanFilter=configureKalmanFilter('ConstantAcceleration',...
                 centroid,[2,5.175e3,9.377e3],[10,25,50]*1e2,0.02);
+%                   kalmanFilter=trackingEKF(@constacc,@cvmeas,centroid,...
+%                       'StateTransitionJacobianFcn',@constaccjac,...
+%                       'MeasurementJacobianFcn',@cvmeasjac,...
+%                       'MeasurementNoise',0.02,'HasAdditiveMeasurementNoise',false,...
+%                       'ProcessNoise',1000);
 
 %                 kalmanFilter=configureKalmanFilter('ConstantAcceleration',...
 %                 centroid,[2,5.175e3,9.377e3],[10,25,50]*1e3,0.001);

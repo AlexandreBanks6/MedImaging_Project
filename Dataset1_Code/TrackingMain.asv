@@ -9,6 +9,13 @@ datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\'
 datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
 
+% datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+%     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
+% datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
+%     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial3/Registration/Recorder_2_Nov11_19-57-18.mp4'];
+
+
+
 %t_dvrk is the old dvrk time, and time_us is the ultrasound time (the one
 %we use)
 [robot_data_resamp,t_dvrk,time_us]=dvrk_tooldat_function(datapath_video,datapath_robot,0); %Interpolates the da Vinci data, to match the US frames
@@ -157,6 +164,7 @@ function tracks=TrackDetect(datapath)
     consecutiveInvisibleCount=the number of consecutive frames where track
     was not detected
     %}
+    %bbox is also included as a test
     tracks=struct('id',{},'Centroid',{},'kalmanFilter',{},...
                     'age',{},'totalVisibleCount',{},'consecutiveInvisibleCount',{},'framenum',{},'TotalTrack',{});
     nextId=1; %This is the ID of the next track
@@ -248,15 +256,15 @@ function tracks=TrackDetect(datapath)
             for i=1:nTracks
                 %------------<Maybe change tracks(i).kalmanFilter to
                 %tracks(i).Centroid
-                cost(i,:)=distance(tracks(i).kalmanFilter,centroids); %This finds distance between centroids and tracks, we can adjust thie algorithm to go faster using weights (see the documentation for this)
+                cost(i,:)=distance(tracks(i).kalmanFilter,centroids)*0.01; %This finds distance between centroids and tracks, we can adjust thie algorithm to go faster using weights (see the documentation for this)
                 %circlescenters=tracks(i).kalmanFilter.State([1,4],1);
                 %viscircles(circlescenters',5,'Color','g');
                 %pause(0.5)
             end
         
             %costOfNonAssignment=100000000;
-            unassignedTrackCost=1; %Cost of not assigning detection to track
-            unassignedDetectionCost=1; %Cost of starting a new track for that detection
+            unassignedTrackCost=10; %Cost of not assigning detection to track
+            unassignedDetectionCost=10000; %Cost of starting a new track for that detection
         
             %assigns detections to tracks using the James Munkres variant of the
             %Hungarian algorithm
@@ -341,8 +349,9 @@ function tracks=TrackDetect(datapath)
             for i=1:size(centroids_new,1)
                 centroid=centroids_new(i,:);
                 %Creat a Kalman filter object (we can change this)
-                kalmanFilter=configureKalmanFilter('ConstantAcceleration',...
-                centroid,[2,5.175e3,9.377e3],[10,25,50]*1e2,0.02);
+%                 kalmanFilter=configureKalmanFilter('ConstantAcceleration',...
+%                 centroid,[2,5.175e3,9.377e3],[10,25,50]*1e2,0.02);
+                  
 
 %                 kalmanFilter=configureKalmanFilter('ConstantAcceleration',...
 %                 centroid,[2,5.175e3,9.377e3],[10,25,50]*1e3,0.001);
