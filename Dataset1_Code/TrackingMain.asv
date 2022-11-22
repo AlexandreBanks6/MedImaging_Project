@@ -205,9 +205,9 @@ function tracks=TrackDetect(datapath)
 
         Mask=imopen(Mask,strel('disk',2));
         [centroids,radii,metric]=imfindcircles(Mask,[radmin radmax],'Sensitivity',HughSensit);
-        imshow(Mask);
-        viscircles(centroids,radii);
-        pause(0.01);
+%         imshow(Mask);
+%         viscircles(centroids,radii);
+%         pause(0.01);
             
     end
     
@@ -220,8 +220,8 @@ function tracks=TrackDetect(datapath)
         
             for i=1:length(tracks)
                predictedCentroid=predict(tracks(i).kalmanFilter);
-               %viscircles(predictedCentroid,5,'Color','b');
-               %pause(0.5)
+%                viscircles(predictedCentroid,5,'Color','b');
+%                pause(0.5)
         
                predictedCentroid=int32(predictedCentroid);
                tracks(i).Centroid=predictedCentroid;
@@ -295,8 +295,8 @@ function tracks=TrackDetect(datapath)
                 tracks(trackIdx).totalVisibleCount=tracks(trackIdx).totalVisibleCount+1;
                 tracks(trackIdx).consecutiveInvisibleCount=0;
                 
-                viscircles(tracks(1).TotalTrack(end,:),5,'Color','b');
-                pause(0.5)
+%                 viscircles(tracks(1).TotalTrack(end,:),5,'Color','b');
+%                 pause(0.5)
         
             end
         
@@ -349,9 +349,13 @@ function tracks=TrackDetect(datapath)
             for i=1:size(centroids_new,1)
                 centroid=centroids_new(i,:);
                 %Creat a Kalman filter object (we can change this)
-%                 kalmanFilter=configureKalmanFilter('ConstantAcceleration',...
-%                 centroid,[2,5.175e3,9.377e3],[10,25,50]*1e2,0.02);
-                  
+                kalmanFilter=configureKalmanFilter('ConstantAcceleration',...
+                centroid,[2,5.175e3,9.377e3],[10,25,50]*1e2,0.02);
+%                   kalmanFilter=trackingEKF(@constacc,@cvmeas,centroid,...
+%                       'StateTransitionJacobianFcn',@constaccjac,...
+%                       'MeasurementJacobianFcn',@cvmeasjac,...
+%                       'MeasurementNoise',0.02,'HasAdditiveMeasurementNoise',false,...
+%                       'ProcessNoise',1000);
 
 %                 kalmanFilter=configureKalmanFilter('ConstantAcceleration',...
 %                 centroid,[2,5.175e3,9.377e3],[10,25,50]*1e3,0.001);

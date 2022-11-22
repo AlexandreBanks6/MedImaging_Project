@@ -4,15 +4,15 @@ close all
 
 %% ---------------<Reading Data>---------------
 
-datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
-    'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
-datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
-    '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
-
 % datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
-%     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
+%     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
 % datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
-%     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial3/Registration/Recorder_2_Nov11_19-57-18.mp4'];
+%     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
+
+datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+    'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
+datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
+    '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial3/Registration/Recorder_2_Nov11_19-57-18.mp4'];
 
 
 
@@ -37,7 +37,7 @@ for i = 1:NumTracks %Loops for the number of trajectories we have
     frame_vec=tracks(i).framenum; %Vector of frames corresponding to point in the trajectory
     
     %Only keeping the first 50 frames
-    frame_vec_indx=frame_vec<=50;
+    frame_vec_indx=frame_vec<=150;
     frame_vec=frame_vec(frame_vec_indx);
     traj=traj(frame_vec_indx,:);
 
@@ -46,7 +46,7 @@ for i = 1:NumTracks %Loops for the number of trajectories we have
     frame_vec=frame_vec(~ZeroRows,:); %Vector of frames corresponding to nonzero locations in US
     
     if isempty(frame_vec)
-        distMeas(i)=[];
+        distMeas(i)=10000;
         continue
 
     end
@@ -85,7 +85,7 @@ us_track_raw=tracks(min_indx).TotalTrack; %With zeros
 frame_vec_raw=tracks(min_indx).framenum; %Vector of frames corresponding to point in the trajectory
 
 %Only keeping the first 50 frames
-frame_vec_indx=frame_vec_raw<=50;
+frame_vec_indx=frame_vec_raw<=150;
 frame_vec=frame_vec_raw(frame_vec_indx);
 us_track=us_track_raw(frame_vec_indx,:);
 
@@ -205,9 +205,9 @@ function tracks=TrackDetect(datapath)
 
         Mask=imopen(Mask,strel('disk',2));
         [centroids,radii,metric]=imfindcircles(Mask,[radmin radmax],'Sensitivity',HughSensit);
-        imshow(Mask);
-        viscircles(centroids,radii);
-        pause(0.01);
+%         imshow(Mask);
+%         viscircles(centroids,radii);
+%         pause(0.01);
             
     end
     
@@ -257,13 +257,13 @@ function tracks=TrackDetect(datapath)
                 %------------<Maybe change tracks(i).kalmanFilter to
                 %tracks(i).Centroid
                 cost(i,:)=distance(tracks(i).kalmanFilter,centroids)*0.01; %This finds distance between centroids and tracks, we can adjust thie algorithm to go faster using weights (see the documentation for this)
-                %circlescenters=tracks(i).kalmanFilter.State([1,4],1);
-                %viscircles(circlescenters',5,'Color','g');
-                %pause(0.5)
+%                 circlescenters=tracks(i).kalmanFilter.State([1,4],1);
+%                 viscircles(circlescenters',5,'Color','g');
+%                 pause(0.5)
             end
         
             %costOfNonAssignment=100000000;
-            unassignedTrackCost=10; %Cost of not assigning detection to track
+            unassignedTrackCost=0.1; %Cost of not assigning detection to track
             unassignedDetectionCost=10000; %Cost of starting a new track for that detection
         
             %assigns detections to tracks using the James Munkres variant of the
@@ -295,8 +295,8 @@ function tracks=TrackDetect(datapath)
                 tracks(trackIdx).totalVisibleCount=tracks(trackIdx).totalVisibleCount+1;
                 tracks(trackIdx).consecutiveInvisibleCount=0;
                 
-                viscircles(tracks(1).TotalTrack(end,:),5,'Color','b');
-                pause(0.5)
+%                 viscircles(tracks(1).TotalTrack(end,:),5,'Color','b');
+%                 pause(0.5)
         
             end
         
