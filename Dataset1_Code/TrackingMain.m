@@ -22,31 +22,43 @@ tracks=TrackDetect(datapath_video);
 %% ------------------------<Similarity Measure>----------------------------
 NumTracks=length(tracks); %The number of tracks detected
 
-% Prior to PCA we must standardize our data by subtracting the mean and
-% dividing by the standard deviation
-dvrk_xyz(:,1)=(dvrk_xyz(:,1)-mean(dvrk_xyz(:,1)))/std(dvrk_xyz(:,1));
-dvrk_xyz(:,2)=(dvrk_xyz(:,2)-mean(dvrk_xyz(:,2)))/std(dvrk_xyz(:,2));
-dvrk_xyz(:,3)=(dvrk_xyz(:,3)-mean(dvrk_xyz(:,3)))/std(dvrk_xyz(:,3));
-
-[refcoeff,refscore,reflatent]=pca(dvrk_xyz); %Returns the loading vectors (principles components)
-
-
 distMeas=zeros(1,NumTracks);
 
 for i = 1:NumTracks %Loops for the number of trajectories we have 
     traj=tracks(i).TotalTrack; %Extracts array of trajectory for a given track
     frame_vec=tracks(i).framenum; %Vector of frames corresponding to point in the trajectory
+    
+    %Only keeping the first 50 frames
+    frame_vec=frame_vec(frame_vec<=50);
+    traj=traj(frame_vec,:);
+
     ZeroRows=traj(:,1)==0;
     traj=traj(~ZeroRows,:); %Removes zeros from trajectory from US
     frame_vec=frame_vec(~ZeroRows,:); %Vector of frames corresponding to nonzero locations in US
+    
+    if isempty(frame_vec)
+        distMeas(i)=[];
+        continue
+
+    end
+    
     %Standardizing The Data
     traj(:,1)=(traj(:,1)-mean(traj(:,1)))/std(traj(:,1));
     traj(:,2)=(traj(:,2)-mean(traj(:,2)))/std(traj(:,2));
     %PCA on the trajectory data
     [coeff,score,latent]=pca(traj);
 
-    refscore_new=refscore(frame_vec,[1:2]);
-    distMeas(i)=sqrt(sum((score(:,1)-refscore_new(:,1)).^2+(score(:,2)-refscore_new(:,2)).^2));
+    % Prior to PCA we must standardize our data by subtracting the mean and
+    % dividing by the standard deviation
+    dvrk_x=(dvrk_xyz(frame_vec,1)-mean(dvrk_xyz(frame_vec,1)))/std(dvrk_xyz(frame_vec,1));
+    dvrk_y=(dvrk_xyz(frame_vec,2)-mean(dvrk_xyz(frame_vec,2)))/std(dvrk_xyz(frame_vec,2));
+    dvrk_z=(dvrk_xyz(frame_vec,3)-mean(dvrk_xyz(frame_vec,3)))/std(dvrk_xyz(frame_vec,3));
+
+    [refcoeff,refscore,reflatent]=pca([dvrk_x,dvrk_y,dvrk_z]); %Returns the loading vectors (principles components)
+
+
+    %refscore_new=refscore(frame_vec,[1:2]);
+    distMeas(i)=sqrt(sum((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2))/length(frame_vec);
     %We use the two-sample kolmogorov-smirnov test to quantify the
     %similarity between the two data distributions (because they have
     %different number of points (this can be changed later)
@@ -59,19 +71,52 @@ for i = 1:NumTracks %Loops for the number of trajectories we have
 end
 
 min_indx=distMeas==min(distMeas);
-min_indx=2;
+%min_indx=2;
 us_track_raw=tracks(min_indx).TotalTrack; %With zeros
 frame_vec_raw=tracks(min_indx).framenum; %Vector of frames corresponding to point in the trajectory
-ZeroRows=us_track_raw(:,1)==0;
-us_track=us_track_raw(~ZeroRows,:); %Removes zeros from trajectory from US
-frame_vec=frame_vec_raw(~ZeroRows,:); %Vector of frames corresponding to nonzero locations in US
+
+%Only keeping the first 50 frames
+frame_vec=frame_vec_raw(frame_vec_raw<=50);
+us_track=us_track_raw(frame_vec,:);
+
+
+ZeroRows=us_track(:,1)==0;
+us_track=us_track(~ZeroRows,:); %Removes zeros from trajectory from US
+frame_vec=frame_vec(~ZeroRows,:); %Vector of frames corresponding to nonzero locations in US
+
+
+
+%% Now we do registration
+%Find three points with smallest Euclidean distance (after PCA)
+us_track_st(:,1)=(us_track(:,1)-mean(us_track(:,1)))/std(us_track(:,1));
+us_track_st(:,2)=(us_track(:,2)-mean(us_track(:,2)))/std(us_track(:,2));
+%PCA on the trajectory data
+[coeff,score,latent]=pca(us_track_st);
+
+dvrk_x=(dvrk_xyz(frame_vec,1)-mean(dvrk_xyz(frame_vec,1)))/std(dvrk_xyz(frame_vec,1));
+dvrk_y=(dvrk_xyz(frame_vec,2)-mean(dvrk_xyz(frame_vec,2)))/std(dvrk_xyz(frame_vec,2));
+dvrk_z=(dvrk_xyz(frame_vec,3)-mean(dvrk_xyz(frame_vec,3)))/std(dvrk_xyz(frame_vec,3));
+
+[refcoeff,refscore,reflatent]=pca([dvrk_x,dvrk_y,dvrk_z]);
+
+EuclidVec=sqrt((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2);
+Min_Nums=mink(EuclidVec,3); %Three smallest indecis
+Min1=find(EuclidVec==Min_Nums(1));
+Min2=find(EuclidVec==Min_Nums(2));
+Min3=find(EuclidVec==Min_Nums(3));
+
+Min1_frame=frame_vec(find(EuclidVec==Min_Nums(1)));
+Min2_frame=frame_vec(find(EuclidVec==Min_Nums(2)));
+Min3_frame=frame_vec(find(EuclidVec==Min_Nums(3)));
+
+Point1=[us_track(Min1,1),us_track(Min1,2)*sin(robot_data_resamp(Min1_frame,4)),us_track(Min1,2)*cos(robot_data_resamp(Min1_frame,4))];
 
 
 
 %% Verifying the points
 
 vidReader=VideoReader(datapath_video);
-
+j=1;
 m=1;
 while hasFrame(vidReader)
 frame=readFrame(vidReader);
@@ -79,8 +124,10 @@ CropRec=[1607.51,85.51,883.98,740.98];
 frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
 frameGray=rgb2gray(frameCropped);
 imshow(frameGray);
-if ZeroRows(m)~=1
-    viscircles(us_track_raw(m,:),10);
+if m==frame_vec(j)
+    viscircles(us_track(j,:),10);
+    pause(0.5);
+    j=j+1;
 end
 pause(0.01);
 m=m+1;
@@ -126,7 +173,6 @@ function tracks=TrackDetect(datapath)
         deleteLostTracks();
         createNewTracks();
         
-    
         disp(m); m=m+1;
     end
     
@@ -194,10 +240,12 @@ function tracks=TrackDetect(datapath)
             cost=zeros(nTracks,nDetections); %Cost of assigning each detection to each track, where each row is cost for a single track
         
             for i=1:nTracks
+                %------------<Maybe change tracks(i).kalmanFilter to
+                %tracks(i).Centroid
                 cost(i,:)=distance(tracks(i).kalmanFilter,centroids); %This finds distance between centroids and tracks, we can adjust thie algorithm to go faster using weights (see the documentation for this)
             end
         
-            costOfNonAssignment=200;
+            costOfNonAssignment=100000000;
         
             %assigns detections to tracks using the James Munkres variant of the
             %Hungarian algorithm
@@ -226,7 +274,9 @@ function tracks=TrackDetect(datapath)
                 %Update the visibility
                 tracks(trackIdx).totalVisibleCount=tracks(trackIdx).totalVisibleCount+1;
                 tracks(trackIdx).consecutiveInvisibleCount=0;
-        
+                
+                viscircles(tracks(1).TotalTrack(end,:),5);
+                %pause(0.5)
         
             end
         
@@ -274,10 +324,10 @@ function tracks=TrackDetect(datapath)
     function createNewTracks()
             %We assign new tracks assuming unassigned detection is the start of a
             %new track
-            centroids=centroids(unassignedDetections,:);
+            centroids_new=centroids(unassignedDetections,:);
             
-            for i=1:size(centroids,1)
-                centroid=centroids(i,:);
+            for i=1:size(centroids_new,1)
+                centroid=centroids_new(i,:);
                 %Creat a Kalman filter object (we can change this)
                 kalmanFilter=configureKalmanFilter('ConstantAcceleration',...
                 centroid,[1,1,1]*1e5,[25,10,10],25);
