@@ -4,15 +4,15 @@ close all
 
 %% ---------------<Reading Data>---------------
 
-% datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
-%     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
-% datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
-%     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
-
 datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
-    'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
+    'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
 datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
-    '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial3/Registration/Recorder_2_Nov11_19-57-18.mp4'];
+    '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
+
+% datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+%     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
+% datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
+%     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial3/Registration/Recorder_2_Nov11_19-57-18.mp4'];
 
 
 
@@ -37,7 +37,7 @@ for i = 1:NumTracks %Loops for the number of trajectories we have
     frame_vec=tracks(i).framenum; %Vector of frames corresponding to point in the trajectory
     
     %Only keeping the first 50 frames
-    frame_vec_indx=frame_vec<=150;
+    frame_vec_indx=frame_vec<=50;
     frame_vec=frame_vec(frame_vec_indx);
     traj=traj(frame_vec_indx,:);
 
@@ -85,7 +85,7 @@ us_track_raw=tracks(min_indx).TotalTrack; %With zeros
 frame_vec_raw=tracks(min_indx).framenum; %Vector of frames corresponding to point in the trajectory
 
 %Only keeping the first 50 frames
-frame_vec_indx=frame_vec_raw<=150;
+frame_vec_indx=frame_vec_raw<=50;
 frame_vec=frame_vec_raw(frame_vec_indx);
 us_track=us_track_raw(frame_vec_indx,:);
 
@@ -120,7 +120,7 @@ Min1_frame=frame_vec(find(EuclidVec==Min_Nums(1)));
 Min2_frame=frame_vec(find(EuclidVec==Min_Nums(2)));
 Min3_frame=frame_vec(find(EuclidVec==Min_Nums(3)));
 
-Point1=[us_track(Min1,1),us_track(Min1,2)*sin(robot_data_resamp(Min1_frame,4)),us_track(Min1,2)*cos(robot_data_resamp(Min1_frame,4))];
+%Point1=[us_track(Min1,1),us_track(Min1,2)*sin(robot_data_resamp(Min1_frame,4)),us_track(Min1,2)*cos(robot_data_resamp(Min1_frame,4))];
 
 
 

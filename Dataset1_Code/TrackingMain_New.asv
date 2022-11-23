@@ -1,0 +1,193 @@
+clear 
+clc
+close all
+
+%% ---------------<Reading Data>---------------
+
+% datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+%     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
+% datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
+%     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
+
+datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+    'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
+datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
+    '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial3/Registration/Recorder_2_Nov11_19-57-18.mp4'];
+
+
+
+%t_dvrk is the old dvrk time, and time_us is the ultrasound time (the one
+%we use)
+[robot_data_resamp,t_dvrk,time_us]=dvrk_tooldat_function(datapath_video,datapath_robot,0); %Interpolates the da Vinci data, to match the US frames
+
+dvrk_xyz=robot_data_resamp(:,[1:3]); %End-effector xyz (this is the reference track)
+
+% Finding Points in Each Frame
+[framearray,framevec]=PointDetect(datapath_video);
+
+
+
+
+%% ------------------------<Similarity Measure>----------------------------
+NumTracks=length(tracks); %The number of tracks detected
+
+distMeas=zeros(1,NumTracks);
+for i = 1:NumTracks %Loops for the number of trajectories we have 
+    traj=tracks(i).TotalTrack; %Extracts array of trajectory for a given track
+    frame_vec=tracks(i).framenum; %Vector of frames corresponding to point in the trajectory
+    
+    %Only keeping the first 50 frames
+    frame_vec_indx=frame_vec<=150;
+    frame_vec=frame_vec(frame_vec_indx);
+    traj=traj(frame_vec_indx,:);
+
+    ZeroRows=traj(:,1)==0;
+    traj=traj(~ZeroRows,:); %Removes zeros from trajectory from US
+    frame_vec=frame_vec(~ZeroRows,:); %Vector of frames corresponding to nonzero locations in US
+    
+    if isempty(frame_vec)
+        distMeas(i)=10000;
+        continue
+
+    end
+    
+    %Standardizing The Data
+    traj(:,1)=(traj(:,1)-mean(traj(:,1)))/std(traj(:,1));
+    traj(:,2)=(traj(:,2)-mean(traj(:,2)))/std(traj(:,2));
+    %PCA on the trajectory data
+    [coeff,score,latent]=pca(traj);
+
+    % Prior to PCA we must standardize our data by subtracting the mean and
+    % dividing by the standard deviation
+    dvrk_x=(dvrk_xyz(frame_vec,1)-mean(dvrk_xyz(frame_vec,1)))/std(dvrk_xyz(frame_vec,1));
+    dvrk_y=(dvrk_xyz(frame_vec,2)-mean(dvrk_xyz(frame_vec,2)))/std(dvrk_xyz(frame_vec,2));
+    dvrk_z=(dvrk_xyz(frame_vec,3)-mean(dvrk_xyz(frame_vec,3)))/std(dvrk_xyz(frame_vec,3));
+
+    [refcoeff,refscore,reflatent]=pca([dvrk_x,dvrk_y,dvrk_z]); %Returns the loading vectors (principles components)
+
+
+    %refscore_new=refscore(frame_vec,[1:2]);
+    distMeas(i)=sqrt(sum((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2))/length(frame_vec);
+    %We use the two-sample kolmogorov-smirnov test to quantify the
+    %similarity between the two data distributions (because they have
+    %different number of points (this can be changed later)
+    %{
+    [~,p1]=kstest2(score(:,1),refscore(:,1));
+    [~,p2]=kstest2(score(:,2),refscore(:,2));
+    distMeas(i)=(p1+p2)/2; %Smaller the p-value, more similar the distributions
+    %}
+
+end
+
+min_indx=distMeas==min(distMeas);
+%min_indx=2;
+us_track_raw=tracks(min_indx).TotalTrack; %With zeros
+frame_vec_raw=tracks(min_indx).framenum; %Vector of frames corresponding to point in the trajectory
+
+%Only keeping the first 50 frames
+frame_vec_indx=frame_vec_raw<=150;
+frame_vec=frame_vec_raw(frame_vec_indx);
+us_track=us_track_raw(frame_vec_indx,:);
+
+
+ZeroRows=us_track(:,1)==0;
+us_track=us_track(~ZeroRows,:); %Removes zeros from trajectory from US
+frame_vec=frame_vec(~ZeroRows,:); %Vector of frames corresponding to nonzero locations in US
+
+
+
+%% Now we do registration
+%Find three points with smallest Euclidean distance (after PCA)
+us_track_st(:,1)=(us_track(:,1)-mean(us_track(:,1)))/std(us_track(:,1));
+us_track_st(:,2)=(us_track(:,2)-mean(us_track(:,2)))/std(us_track(:,2));
+%PCA on the trajectory data
+[coeff,score,latent]=pca(us_track_st);
+
+dvrk_x=(dvrk_xyz(frame_vec,1)-mean(dvrk_xyz(frame_vec,1)))/std(dvrk_xyz(frame_vec,1));
+dvrk_y=(dvrk_xyz(frame_vec,2)-mean(dvrk_xyz(frame_vec,2)))/std(dvrk_xyz(frame_vec,2));
+dvrk_z=(dvrk_xyz(frame_vec,3)-mean(dvrk_xyz(frame_vec,3)))/std(dvrk_xyz(frame_vec,3));
+
+[refcoeff,refscore,reflatent]=pca([dvrk_x,dvrk_y,dvrk_z]);
+
+EuclidVec=sqrt((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2);
+
+Min_Nums=mink(EuclidVec,3); %Three smallest indecis
+Min1=find(EuclidVec==Min_Nums(1));
+Min2=find(EuclidVec==Min_Nums(2));
+Min3=find(EuclidVec==Min_Nums(3));
+
+Min1_frame=frame_vec(find(EuclidVec==Min_Nums(1)));
+Min2_frame=frame_vec(find(EuclidVec==Min_Nums(2)));
+Min3_frame=frame_vec(find(EuclidVec==Min_Nums(3)));
+
+Point1=[us_track(Min1,1),us_track(Min1,2)*sin(robot_data_resamp(Min1_frame,4)),us_track(Min1,2)*cos(robot_data_resamp(Min1_frame,4))];
+
+
+
+%% Verifying the points
+
+vidReader=VideoReader(datapath_video);
+j=1;
+m=1;
+while hasFrame(vidReader)
+frame=readFrame(vidReader);
+CropRec=[1607.51,85.51,883.98,740.98];
+frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
+frameGray=rgb2gray(frameCropped);
+imshow(frameGray);
+if m==frame_vec(j)
+    viscircles(us_track(j,:),10);
+    pause(0.5);
+    j=j+1;
+end
+pause(0.01);
+m=m+1;
+end
+
+
+
+
+
+
+
+%% -----------------------<Function definitions>---------------------------
+function [pointarray,framevec]=PointDetect(datapath)
+%Setting up Optic Flow Object
+opticFlow=opticalFlowLK('NoiseThreshold',0.001); %Increasing number means movement of object has less impact on calculation
+%Reading in video
+vidReader=VideoReader(datapath);
+% Parameters
+VelThresh=1; %Threshold for velocity magnitudes that are not considered movement
+radmin=8;
+radmax=30;
+HughSensit=0.8;
+
+CropRec=[1607.51,85.51,883.98,740.98];
+m=1;
+pointarray={};
+framevec=[];
+    while hasFrame(vidReader)
+        frame=readFrame(vidReader);
+        frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
+        frameGray=rgb2gray(frameCropped);
+        
+        flow=estimateFlow(opticFlow,frameGray);
+        Mask=imbinarize(flow.Magnitude,VelThresh);
+        
+        Mask=imopen(Mask,strel('disk',2));
+        [centroids,radii,metric]=imfindcircles(Mask,[radmin radmax],'Sensitivity',HughSensit);
+
+        if ~isempty(centroids)
+            pointarray={pointarray;{centroids}};
+        end
+               
+
+        m=m+1;
+    end
+
+end
+
+
+
+
+
