@@ -133,23 +133,23 @@ while hasFrame(vidReader)
     frame=readFrame(vidReader);
     CropRec=[1607.51,85.51,883.98,740.98];
     frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
-    [max_h, max_g] = size(frameCropped);
+    [max_g, max_h] = size(frameCropped);
     break;
 end
-h = us_track(Min1,1);
-g = us_track(Min1,2);
+g = us_track(Min1,1);
+h = us_track(Min1,2);
 l = 0.065; %length (and width) of ultrasound screen in meters
 %assume all distances are in meters. 
 TRUS_Point1=[-1*g/max_g*l, (max_h-h)/max_h*l*sin(2*pi*robot_data_resamp(Min1_frame,4)/360), (max_h-h)/max_h*l*cos(2*pi*robot_data_resamp(Min1_frame,4)/360)];
 
-h = us_track(Min2,1);
-g = us_track(Min2,2);
+g = us_track(Min2,1);
+h = us_track(Min2,2);
 l = 0.065; %length (and width) of ultrasound screen in meters
 %assume all distances are in meters. 
 TRUS_Point2=[-1*g/max_g*l, (max_h-h)/max_h*l*sin(2*pi*robot_data_resamp(Min2_frame,4)/360), (max_h-h)/max_h*l*cos(2*pi*robot_data_resamp(Min2_frame,4)/360)];
 
-h = us_track(Min3,1);
-g = us_track(Min3,2);
+g = us_track(Min3,1);
+h = us_track(Min3,2);
 l = 0.065; %length (and width) of ultrasound screen in meters
 %assume all distances are in meters. 
 TRUS_Point3=[-1*g/max_g*l, (max_h-h)/max_h*l*sin(2*pi*robot_data_resamp(Min3_frame,4)/360), (max_h-h)/max_h*l*cos(2*pi*robot_data_resamp(Min3_frame,4)/360)];
@@ -162,14 +162,14 @@ dV_Point2 = dvrk_xyz(Min2_frame, :);
 dV_Point3 = dvrk_xyz(Min3_frame,:);
 dV_Coordinates = [dV_Point1; dV_Point2; dV_Point3];
 %compute the transform
-T_dV_TRUS = LeastSquaresNumericalTransform(TRUS_Coordinates,dV_Coordinates)
+T_dV_TRUS = LeastSquaresNumericalTransform(TRUS_Coordinates,dV_Coordinates);
 
 %Use the transform to compute the da Vinci points based on TRUS points and
 %plot the error
 TRUS_data = []; %holds predicted da Vinci values
 for i = 1:length(us_track)
-    h = us_track(i,1);
-    g = us_track(i,2);
+    g = us_track(i,1);
+    h = us_track(i,2);
     theta = robot_data_resamp(frame_vec(i),4)*2*pi/360; %in radians
     TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (max_h-h)/max_h*l*sin(theta), (max_h-h)/max_h*l*cos(theta), 1]')']; 
 end
@@ -177,17 +177,34 @@ dV_data = [];
 for i = 1:length(us_track)
     dV_data = [dV_data; dvrk_xyz(frame_vec(i),:)];
 end
-
+%remove the fourth column from the TRUS data (the +1)
+TRUS_data(:,4) = [];
 figure; 
+subplot(2,2,1); 
+plot(TRUS_data(:,1),"*")
+hold on 
+plot(dV_data(:,1), "*")
+legend(["TRUS Predicited", "True"])
+title("X Coordinates")
+subplot(2,2,2); 
+plot(TRUS_data(:,2),"*")
+hold on 
+plot(dV_data(:,2), "*")
+legend(["TRUS Predicited", "True"])
+title("Y Coordinates")
+subplot(2,2,3); 
 plot(TRUS_data(:,3),"*")
 hold on 
 plot(dV_data(:,3), "*")
-legend(["TRUS_predicited", "True"])
-% TRUS_data =
-% transformedTRUS = 
+legend(["TRUS Predicited", "True"])
+title("Z Coordinates")
 
+%Calculate the RMSE of the predicted points to the actual points (dVRK
+%data) 
+error = rmse(TRUS_data, dV_data)*1000; %in mm
+total_distance_error = (error(1)^2 + error(2)^2 + error(3)^2)^0.5
 %% Verifying the points
-
+figure;
 vidReader=VideoReader(datapath_video);
 j=1;
 m=1;
@@ -203,7 +220,7 @@ if m==frame_vec(j)
     j=j+1;
 end
 pause(0.01);
-m=m+1;
+m=m+1
 end
 
 

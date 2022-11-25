@@ -7,7 +7,7 @@ function [T_BA] = LeastSquaresNumericalTransform(TestDataA,TestDataB)
 %   Detailed proof found in
 %   https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=8271986
 
-[n,d] = size(TestDataA)
+[n,d] = size(TestDataA);
 xA = TestDataA(:,1);
 yA = TestDataA(:,2);
 zA = TestDataA(:,3);

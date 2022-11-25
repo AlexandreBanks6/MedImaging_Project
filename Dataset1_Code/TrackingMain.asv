@@ -37,8 +37,8 @@ NumTracks=length(tracks); %The number of tracks detected
 distMeas=zeros(1,NumTracks);
 for i = 1:NumTracks %Loops for the number of trajectories we have 
     traj=tracks(i).TotalTrack; %Extracts array of trajectory for a given track
-    frame_vec=tracks(i).framenum; %Vector of frames corresponding to point in the trajectory
-    
+    frame_vec=tracks(i).framenum; %Vector of frames corresponding to point in the trajectoryf
+    frame_vec=frame_vec;
     %Only keeping the first 50 frames
     frame_vec_indx=frame_vec<=50;
     frame_vec=frame_vec(frame_vec_indx);
@@ -96,7 +96,7 @@ us_track=us_track_raw(frame_vec_indx,:);
 ZeroRows=us_track(:,1)==0;
 us_track=us_track(~ZeroRows,:); %Removes zeros from trajectory from US
 frame_vec=frame_vec(~ZeroRows,:); %Vector of frames corresponding to nonzero locations in US
-
+frame_vec=frame_vec;
 
 
 %% Now we do registration
@@ -166,7 +166,7 @@ T_dV_TRUS = LeastSquaresNumericalTransform(TRUS_Coordinates,dV_Coordinates)
 
 %Use the transform to compute the da Vinci points based on TRUS points and
 %plot the error
-TRUS_data = [];
+TRUS_data = []; %holds predicted da Vinci values
 for i = 1:length(us_track)
     h = us_track(i,1);
     g = us_track(i,2);
@@ -177,14 +177,17 @@ dV_data = [];
 for i = 1:length(us_track)
     dV_data = [dV_data; dvrk_xyz(frame_vec(i),:)];
 end
-
+%remove the fourth column from the TRUS data (the +1)
+TRUS_data(:,4) = [];
 figure; 
-plot(TRUS_data(:,),"*")
+plot(TRUS_data(:,3),"*")
 hold on 
-plot(dV_data(:,1))
+plot(dV_data(:,3), "*")
 legend(["TRUS_predicited", "True"])
-% TRUS_data =
-% transformedTRUS = 
+
+%Calculate the RMSE of the predicted points to the actual points (dVRK
+%data) 
+error = rmse(TRU)
 
 %% Verifying the points
 
