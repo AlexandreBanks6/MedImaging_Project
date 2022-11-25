@@ -9,8 +9,18 @@ close all
 % datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
 %     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
 
-datapath_robot=['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\data.csv'];
-datapath_video=['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\Recorder_2_Nov11_20-01-30.mp4'];
+%data, video
+Trial1_Registration = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Registration\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Registration\US.mp4' ];
+Trial1_Test = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\US.mp4'];
+Trial2_Registration = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial2\Registration\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial2\Registration\US.mp4' ];
+% DNE Trial2_Test = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\US.mp4' ];
+Trial3_Registration = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Registration\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Registration\US.mp4' ];
+Trial3_Test = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Test\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Test\US.mp4'];
+Trial4_Registration = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\US.mp4"];
+Trial4_Test = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\US.mp4'];
+
+datapath_robot = Trial4_Registration(1);
+datapath_video= Trial4_Registration(2);
 
 % datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
 %     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
@@ -113,19 +123,10 @@ dvrk_z=(dvrk_xyz(frame_vec,3)-mean(dvrk_xyz(frame_vec,3)))/std(dvrk_xyz(frame_ve
 [refcoeff,refscore,reflatent]=pca([dvrk_x,dvrk_y,dvrk_z]);
 
 EuclidVec=sqrt((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2);
+num_points = 15; %Number of points to use for registration
+Min_Nums=mink(EuclidVec,num_points); %Three smallest indecis
 
-Min_Nums=mink(EuclidVec,3); %Three smallest indecis
-Min1=find(EuclidVec==Min_Nums(1));
-Min2=find(EuclidVec==Min_Nums(2));
-Min3=find(EuclidVec==Min_Nums(3));
-
-Min1_frame=frame_vec(find(EuclidVec==Min_Nums(1)));
-Min2_frame=frame_vec(find(EuclidVec==Min_Nums(2)));
-Min3_frame=frame_vec(find(EuclidVec==Min_Nums(3)));
-
-%Convert US Image coordinates into TRUS coordinates
-
-%find maximum pixel value 
+%find maximum pixel values in US image 
 vidReader=VideoReader(datapath_video);
 max_h = 0; 
 max_g = 0;
@@ -136,36 +137,34 @@ while hasFrame(vidReader)
     [max_g, max_h] = size(frameCropped);
     break;
 end
-g = us_track(Min1,1);
-h = us_track(Min1,2);
+
+%Convert US image coords into TRUS coords
+TRUS_Coordinates = [];
 l = 0.065; %length (and width) of ultrasound screen in meters
-%assume all distances are in meters. 
-TRUS_Point1=[-1*g/max_g*l, (max_h-h)/max_h*l*sin(2*pi*robot_data_resamp(Min1_frame,4)/360), (max_h-h)/max_h*l*cos(2*pi*robot_data_resamp(Min1_frame,4)/360)];
-
-g = us_track(Min2,1);
-h = us_track(Min2,2);
-l = 0.065; %length (and width) of ultrasound screen in meters
-%assume all distances are in meters. 
-TRUS_Point2=[-1*g/max_g*l, (max_h-h)/max_h*l*sin(2*pi*robot_data_resamp(Min2_frame,4)/360), (max_h-h)/max_h*l*cos(2*pi*robot_data_resamp(Min2_frame,4)/360)];
-
-g = us_track(Min3,1);
-h = us_track(Min3,2);
-l = 0.065; %length (and width) of ultrasound screen in meters
-%assume all distances are in meters. 
-TRUS_Point3=[-1*g/max_g*l, (max_h-h)/max_h*l*sin(2*pi*robot_data_resamp(Min3_frame,4)/360), (max_h-h)/max_h*l*cos(2*pi*robot_data_resamp(Min3_frame,4)/360)];
-
-TRUS_Coordinates = [TRUS_Point1;TRUS_Point2;TRUS_Point3];
-
-% daVinci_Coordinates
-dV_Point1 = dvrk_xyz(Min1_frame,:);
-dV_Point2 = dvrk_xyz(Min2_frame, :); 
-dV_Point3 = dvrk_xyz(Min3_frame,:);
-dV_Coordinates = [dV_Point1; dV_Point2; dV_Point3];
+for i = 1:length(Min_Nums)
+    mini = find(EuclidVec==Min_Nums(i));
+    mini_frame = frame_vec(find(EuclidVec==Min_Nums(i)));
+    g = us_track(mini,1);
+    h = us_track(mini,2);
+    TRUS_Coordinates=[TRUS_Coordinates; [-1*g/max_g*l, (max_h-h)/max_h*l*sin(2*pi*robot_data_resamp(mini_frame,4)/360), (max_h-h)/max_h*l*cos(2*pi*robot_data_resamp(mini_frame,4)/360)]];
+end
+dV_Coordinates = [];
+for i = 1:length(Min_Nums)
+    mini = find(EuclidVec==Min_Nums(i));
+    mini_frame = frame_vec(find(EuclidVec==Min_Nums(i)));
+    dV_Coordinates = [dV_Coordinates;dvrk_xyz(mini_frame,:)]
+end
+% % daVinci_Coordinates
+% dV_Point1 = dvrk_xyz(Min1_frame,:);
+% dV_Point2 = dvrk_xyz(Min2_frame, :); 
+% dV_Point3 = dvrk_xyz(Min3_frame,:);
+% dV_Coordinates = [dV_Point1; dV_Point2; dV_Point3];
 %compute the transform
 T_dV_TRUS = LeastSquaresNumericalTransform(TRUS_Coordinates,dV_Coordinates);
 
 %Use the transform to compute the da Vinci points based on TRUS points and
 %plot the error
+
 TRUS_data = []; %holds predicted da Vinci values
 for i = 1:length(us_track)
     g = us_track(i,1);
@@ -173,6 +172,7 @@ for i = 1:length(us_track)
     theta = robot_data_resamp(frame_vec(i),4)*2*pi/360; %in radians
     TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (max_h-h)/max_h*l*sin(theta), (max_h-h)/max_h*l*cos(theta), 1]')']; 
 end
+
 dV_data = [];
 for i = 1:length(us_track)
     dV_data = [dV_data; dvrk_xyz(frame_vec(i),:)];
@@ -200,7 +200,7 @@ legend(["TRUS Predicited", "True"])
 title("Z Coordinates")
 
 %Calculate the RMSE of the predicted points to the actual points (dVRK
-%data) 
+%data)
 error = rmse(TRUS_data, dV_data)*1000; %in mm
 total_distance_error = (error(1)^2 + error(2)^2 + error(3)^2)^0.5
 %% Verifying the points
