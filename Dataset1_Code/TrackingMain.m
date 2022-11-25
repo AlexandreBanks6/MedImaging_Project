@@ -184,6 +184,7 @@ function tracks=TrackDetect(datapath)
         updateUnassignedTracks();
         deleteLostTracks();
         createNewTracks();
+      
         
         disp(m); m=m+1;
     end
