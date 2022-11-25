@@ -4,10 +4,13 @@ close all
 
 %% ---------------<Reading Data>---------------
 
-datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
-    'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
-datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
-    '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
+% datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
+%     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial4\Registration\data.csv'];
+% datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
+%     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
+
+datapath_robot=['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\data.csv'];
+datapath_video=['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\Recorder_2_Nov11_20-01-30.mp4'];
 
 % datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
 %     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
@@ -34,8 +37,8 @@ NumTracks=length(tracks); %The number of tracks detected
 distMeas=zeros(1,NumTracks);
 for i = 1:NumTracks %Loops for the number of trajectories we have 
     traj=tracks(i).TotalTrack; %Extracts array of trajectory for a given track
-    frame_vec=tracks(i).framenum; %Vector of frames corresponding to point in the trajectory
-    
+    frame_vec=tracks(i).framenum; %Vector of frames corresponding to point in the trajectoryf
+    frame_vec=frame_vec;
     %Only keeping the first 50 frames
     frame_vec_indx=frame_vec<=50;
     frame_vec=frame_vec(frame_vec_indx);
@@ -93,7 +96,7 @@ us_track=us_track_raw(frame_vec_indx,:);
 ZeroRows=us_track(:,1)==0;
 us_track=us_track(~ZeroRows,:); %Removes zeros from trajectory from US
 frame_vec=frame_vec(~ZeroRows,:); %Vector of frames corresponding to nonzero locations in US
-
+frame_vec=frame_vec;
 
 
 %% Now we do registration
@@ -120,9 +123,68 @@ Min1_frame=frame_vec(find(EuclidVec==Min_Nums(1)));
 Min2_frame=frame_vec(find(EuclidVec==Min_Nums(2)));
 Min3_frame=frame_vec(find(EuclidVec==Min_Nums(3)));
 
-%Point1=[us_track(Min1,1),us_track(Min1,2)*sin(robot_data_resamp(Min1_frame,4)),us_track(Min1,2)*cos(robot_data_resamp(Min1_frame,4))];
+%Convert US Image coordinates into TRUS coordinates
 
+%find maximum pixel value 
+vidReader=VideoReader(datapath_video);
+max_h = 0; 
+max_g = 0;
+while hasFrame(vidReader)
+    frame=readFrame(vidReader);
+    CropRec=[1607.51,85.51,883.98,740.98];
+    frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
+    [max_h, max_g] = size(frameCropped);
+    break;
+end
+h = us_track(Min1,1);
+g = us_track(Min1,2);
+l = 0.065; %length (and width) of ultrasound screen in meters
+%assume all distances are in meters. 
+TRUS_Point1=[-1*g/max_g*l, (max_h-h)/max_h*l*sin(2*pi*robot_data_resamp(Min1_frame,4)/360), (max_h-h)/max_h*l*cos(2*pi*robot_data_resamp(Min1_frame,4)/360)];
 
+h = us_track(Min2,1);
+g = us_track(Min2,2);
+l = 0.065; %length (and width) of ultrasound screen in meters
+%assume all distances are in meters. 
+TRUS_Point2=[-1*g/max_g*l, (max_h-h)/max_h*l*sin(2*pi*robot_data_resamp(Min2_frame,4)/360), (max_h-h)/max_h*l*cos(2*pi*robot_data_resamp(Min2_frame,4)/360)];
+
+h = us_track(Min3,1);
+g = us_track(Min3,2);
+l = 0.065; %length (and width) of ultrasound screen in meters
+%assume all distances are in meters. 
+TRUS_Point3=[-1*g/max_g*l, (max_h-h)/max_h*l*sin(2*pi*robot_data_resamp(Min3_frame,4)/360), (max_h-h)/max_h*l*cos(2*pi*robot_data_resamp(Min3_frame,4)/360)];
+
+TRUS_Coordinates = [TRUS_Point1;TRUS_Point2;TRUS_Point3];
+
+% daVinci_Coordinates
+dV_Point1 = dvrk_xyz(Min1_frame,:);
+dV_Point2 = dvrk_xyz(Min2_frame, :); 
+dV_Point3 = dvrk_xyz(Min3_frame,:);
+dV_Coordinates = [dV_Point1; dV_Point2; dV_Point3];
+%compute the transform
+T_dV_TRUS = LeastSquaresNumericalTransform(TRUS_Coordinates,dV_Coordinates)
+
+%Use the transform to compute the da Vinci points based on TRUS points and
+%plot the error
+TRUS_data = []; %holds predicted da Vinci values
+for i = 1:length(us_track)
+    h = us_track(i,1);
+    g = us_track(i,2);
+    theta = robot_data_resamp(frame_vec(i),4)*2*pi/360; %in radians
+    TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (max_h-h)/max_h*l*sin(theta), (max_h-h)/max_h*l*cos(theta), 1]')']; 
+end
+dV_data = [];
+for i = 1:length(us_track)
+    dV_data = [dV_data; dvrk_xyz(frame_vec(i),:)];
+end
+
+figure; 
+plot(TRUS_data(:,3),"*")
+hold on 
+plot(dV_data(:,3), "*")
+legend(["TRUS_predicited", "True"])
+% TRUS_data =
+% transformedTRUS = 
 
 %% Verifying the points
 
