@@ -9,17 +9,17 @@ close all
 % datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
 %     '/ELEC_523_MedImaging/Project/MooreBanks_Results/Trial4/Registration/Recorder_2_Nov11_20-01-30.mp4'];
 
-Trial1_Registration = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Registration\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Registration\US.mp4' ];
-Trial1_Test = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\US.mp4'];
-Trial2_Registration = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial2\Registration\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial2\Registration\US.mp4' ];
+Trial1_Registration = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Registration\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Registration\US.mp4" ];
+Trial1_Test = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\US.mp4"];
+Trial2_Registration = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial2\Registration\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial2\Registration\US.mp4" ];
 % DNE Trial2_Test = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\US.mp4' ];
-Trial3_Registration = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Registration\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Registration\US.mp4' ];
-Trial3_Test = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Test\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Test\US.mp4'];
+Trial3_Registration = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Registration\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Registration\US.mp4"];
+Trial3_Test = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Test\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Test\US.mp4"];
 Trial4_Registration = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\US.mp4"];
-Trial4_Test = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\US.mp4'];
+Trial4_Test = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\US.mp4"];
 
-datapath_robot = Trial4_Registration(1);
-datapath_video= Trial4_Registration(2);
+datapath_robot = Trial2_Registration(1);
+datapath_video= Trial2_Registration(2);
 % datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
 %     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
 % datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
@@ -122,7 +122,7 @@ dvrk_z=(dvrk_xyz(frame_vec,3)-mean(dvrk_xyz(frame_vec,3)))/std(dvrk_xyz(frame_ve
 
 EuclidVec=sqrt((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2);
 rmse_allTrials = [];
-numberOfIterations = 15;
+numberOfIterations = 9;
 for iter = 3:numberOfIterations
     num_points = iter; %Number of points to use for registration
     Min_Nums=mink(EuclidVec,num_points); %'iter' smallest indecis
@@ -133,7 +133,7 @@ for iter = 3:numberOfIterations
     max_g = 0;
     while hasFrame(vidReader)
         frame=readFrame(vidReader);
-        CropRec=[1607.51,85.51,883.98,740.98];
+        CropRec= [1618,160,923,651];
         frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
         [max_g, max_h] = size(frameCropped);
         break;
@@ -142,12 +142,15 @@ for iter = 3:numberOfIterations
     %Convert US image coords into TRUS coords
     TRUS_Coordinates = [];
     l = 0.065; %length (and width) of ultrasound screen in meters
+    r = 0.0093; %radius of ultrasound probe in meters 
+    frames_used_us_track = []; %indicates the index in US track that were used to calculate the transformation (training data)
     for i = 1:length(Min_Nums)
         mini = find(EuclidVec==Min_Nums(i));
+        frames_used_us_track = [frames_used_us_track; mini];
         mini_frame = frame_vec(find(EuclidVec==Min_Nums(i)));
         g = us_track(mini,1);
         h = us_track(mini,2);
-        TRUS_Coordinates=[TRUS_Coordinates; [-1*g/max_g*l, (max_h-h)/max_h*l*sin(2*pi*robot_data_resamp(mini_frame,4)/360), (max_h-h)/max_h*l*cos(2*pi*robot_data_resamp(mini_frame,4)/360)]];
+        TRUS_Coordinates = [TRUS_Coordinates; [-1*g/max_g*l,(r + (max_h-h)/max_h*l)*sin(2*pi*robot_data_resamp(mini_frame,4)/360), (r + (max_h-h)/max_h*l)*cos(2*pi*robot_data_resamp(mini_frame,4)/360)]];
     end
     dV_Coordinates = [];
     for i = 1:length(Min_Nums)
@@ -167,15 +170,24 @@ for iter = 3:numberOfIterations
     %plot the error
     
     TRUS_data = []; %holds predicted da Vinci values
-    for i = 1:length(us_track)
-        g = us_track(i,1);
-        h = us_track(i,2);
+    %Remove the values we used for generating the transform to ensure we
+    %are testing on new data 
+    test_us_track = us_track; %make copy 
+    test_us_track(frames_used_us_track,:) = []; %eliminate used points
+    for i = 1:length(test_us_track)
+        g = test_us_track(i,1);
+        h = test_us_track(i,2);
         theta = robot_data_resamp(frame_vec(i),4)*2*pi/360; %in radians
-        TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (max_h-h)/max_h*l*sin(theta), (max_h-h)/max_h*l*cos(theta), 1]')']; 
+        %compute the transform of the da Vinci data
+        TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (r + (max_h-h)/max_h*l)*sin(theta), (r + (max_h-h)/max_h*l)*cos(theta), 1]')']; 
     end
     
     dV_data = [];
-    for i = 1:length(us_track)
+    %Remove the values we used for generating the transform to ensure we
+    %are testing on new data 
+    test_frame_vec = us_track; %make copy 
+    test_frame_vec(frames_used_us_track) = []; %eliminate used point
+    for i = 1:length(test_us_track)
         dV_data = [dV_data; dvrk_xyz(frame_vec(i),:)];
     end
     %remove the fourth column from the TRUS data (the +1)
@@ -218,7 +230,7 @@ j=1;
 m=1;
 while hasFrame(vidReader)
 frame=readFrame(vidReader);
-CropRec=[1607.51,85.51,883.98,740.98];
+CropRec = [1618,160,923,651];
 frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
 frameGray=rgb2gray(frameCropped);
 imshow(frameGray);
@@ -284,7 +296,7 @@ function tracks=TrackDetect(datapath)
         radmax=30;
         HughSensit=0.8;
 
-        CropRec=[1607.51,85.51,883.98,740.98];
+        CropRec = [1618,160,923,651];
         frameCropped=imcrop(frameRGB,CropRec); %Crops just the US portion of the image
         frameGray=rgb2gray(frameCropped);
 

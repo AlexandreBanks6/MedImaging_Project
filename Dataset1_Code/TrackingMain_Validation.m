@@ -1,6 +1,17 @@
 clear 
 clc
 close all
+%% ---------------<Description>---------------
+%This file differs from TrackingMain.m by using hand annotated data from
+%the test trials (Test 4 and Test 3). This hand-annotated data is collected
+%by visually observing which frames are being correctly tracked, and using
+%these to obtain the coordinates used for testing the transformation
+%efficacy. Only test data from Trial 4 was collected. Data was found using
+%the following code (after running the script on Test 4 files):
+    %Trial4_Test_gooddV = robot_data_resamp(Trial4_Test_goodFrame, :);
+    %x = []; for i = 1:length(Trial4_Test_goodFrame) x = [x; find(frame_vec==Trial4_Test_goodFrame(1,i))];end
+    %Trial4_Test_goodUStrack = us_track(x,:)
+%The data was then pasted into this script
 
 %% ---------------<Reading Data>---------------
 
@@ -14,13 +25,81 @@ Trial1_Registration = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_R
 Trial1_Test = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\US.mp4'];
 Trial2_Registration = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial2\Registration\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial2\Registration\US.mp4' ];
 % DNE Trial2_Test = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial1\Test\US.mp4' ];
-Trial3_Registration = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Registration\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Registration\US.mp4' ];
+Trial3_Registration = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Registration\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Registration\US.mp4" ];
 Trial3_Test = ['C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Test\data.csv','C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial3\Test\US.mp4'];
 Trial4_Registration = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\US.mp4"];
 Trial4_Test = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\US.mp4"];
+Trial4_Registration_goodFrames = [25,26,27,28,29,30,31,32,37,38,39,40,41,42,43,46,47,48,49,50]; %video frames where good track occurs
 
-datapath_robot = Trial4_Test(1);
-datapath_video= Trial4_Test(2);
+Trial4_Test_goodFrame= [6,7, 8, 9,10, 11,12,13, 14,18, 19, 20, 21,22,23, 24,25, 26, 27,28, 29, 30, 31, 32, 38,45,46,47, 48,49,50  ];
+Trial4_Test_gooddV = [ 
+  0.1357    1.0035    0.3138  -17.1646
+    0.1370    1.0029    0.3101  -17.1285
+    0.1373    1.0028    0.3090  -17.1054
+    0.1374    1.0028    0.3088  -17.1091
+    0.1378    1.0026    0.3077  -17.0972
+    0.1380    1.0043    0.3075  -16.8814
+    0.1385    1.0078    0.3072  -15.3000
+    0.1388    1.0104    0.3071  -14.1239
+    0.1390    1.0128    0.3070  -12.4374
+    0.1368    1.0005    0.3078  -18.3716
+    0.1365    0.9968    0.3059  -20.4782
+    0.1373    0.9954    0.3028  -24.5523
+    0.1377    0.9977    0.3024  -24.1823
+    0.1377    1.0015    0.3037  -22.5022
+    0.1367    1.0041    0.3074  -19.7164
+    0.1361    1.0063    0.3097  -18.8756
+    0.1360    1.0109    0.3097  -17.8360
+    0.1354    1.0141    0.3094  -17.7881
+    0.1348    1.0155    0.3091  -18.9076
+    0.1343    1.0154    0.3090  -19.5233
+    0.1337    1.0117    0.3089  -21.7585
+    0.1331    1.0078    0.3091  -23.4651
+    0.1325    1.0047    0.3093  -24.8633
+    0.1319    1.0014    0.3096  -26.6747
+    0.1334    1.0143    0.3112  -21.0589
+    0.1374    1.0141    0.3067  -15.7983
+    0.1357    1.0142    0.3118  -15.8696
+    0.1359    1.0136    0.3110  -16.0264
+    0.1356    1.0088    0.3103  -17.5252
+    0.1358    1.0085    0.3094  -18.6326
+    0.1373    1.0102    0.3069  -18.0011
+];
+Trial4_Test_goodUStrack =[  
+  278.9593  296.3561
+  245.8754  329.5104
+  227.3313  329.9818
+  225.3016  296.4943
+  252.1312  262.7662
+  302.5502  229.5427
+  315.5785  208.7799
+  307.6296  167.2621
+  305.3350  147.2901
+  325.7930  196.6811
+  336.0982  221.9667
+  342.0289  242.5630
+  352.4729  272.4769
+  352.3758  273.1473
+  345.1567  236.5730
+  363.7488  213.9549
+  360.1904  198.6750
+  346.9873  151.7668
+  330.0111  146.0391
+  286.2854  133.5189
+  273.4016  121.7633
+  262.5666  110.8389
+  229.2095  107.4064
+  237.7194  144.4412
+  256.6071  173.1968
+  249.6541  206.4793
+  260.4625  223.4877
+  303.6817  214.1116
+  335.3717  193.2647
+  335.3503  184.1404
+  326.9989  159.3645  
+];
+datapath_robot = Trial3_Registration(1);
+datapath_video= Trial3_Registration(2);
 
 % datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
 %     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
@@ -123,6 +202,7 @@ dvrk_z=(dvrk_xyz(frame_vec,3)-mean(dvrk_xyz(frame_vec,3)))/std(dvrk_xyz(frame_ve
 [refcoeff,refscore,reflatent]=pca([dvrk_x,dvrk_y,dvrk_z]);
 
 EuclidVec=sqrt((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2);
+
 num_points = 3; %Number of points to use for registration
 Min_Nums=mink(EuclidVec,num_points); %Three smallest indecis
 
@@ -132,7 +212,7 @@ max_h = 0;
 max_g = 0;
 while hasFrame(vidReader)
     frame=readFrame(vidReader);
-     CropRec = [1618,160,923,651];
+    CropRec = [1618,160,923,651];
     frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
     [max_g, max_h] = size(frameCropped);
     break;
@@ -141,7 +221,7 @@ end
 %Convert US image coords into TRUS coords
 TRUS_Coordinates = [];
 l = 0.065; %length (and width) of ultrasound screen in meters
-r = 0.0093; %radius of curvature of US probe in meters 
+r = 0.0093; %radius of probe in meters
 for i = 1:length(Min_Nums)
     mini = find(EuclidVec==Min_Nums(i));
     mini_frame = frame_vec(find(EuclidVec==Min_Nums(i)));
@@ -155,29 +235,20 @@ for i = 1:length(Min_Nums)
     mini_frame = frame_vec(find(EuclidVec==Min_Nums(i)));
     dV_Coordinates = [dV_Coordinates;dvrk_xyz(mini_frame,:)]
 end
-% % daVinci_Coordinates
-% dV_Point1 = dvrk_xyz(Min1_frame,:);
-% dV_Point2 = dvrk_xyz(Min2_frame, :); 
-% dV_Point3 = dvrk_xyz(Min3_frame,:);
-% dV_Coordinates = [dV_Point1; dV_Point2; dV_Point3];
+
 %compute the transform
 T_dV_TRUS = LeastSquaresNumericalTransform(TRUS_Coordinates,dV_Coordinates);
 
 %Use the transform to compute the da Vinci points based on TRUS points and
 %plot the error
-
 TRUS_data = []; %holds predicted da Vinci values
-for i = 1:length(us_track)
-    g = us_track(i,1);
-    h = us_track(i,2);
-    theta = robot_data_resamp(frame_vec(i),4)*2*pi/360; %in radians
+for i = 1:length(Trial4_Test_goodUStrack)
+    g = Trial4_Test_goodUStrack(i,1);
+    h = Trial4_Test_goodUStrack(i,2);
+    theta = Trial4_Test_gooddV(i,4)*2*pi/360; %in radians
     TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (r + (max_h-h)/max_h*l)*sin(theta), (r + (max_h-h)/max_h*l)*cos(theta), 1]')']; 
 end
-
-dV_data = [];
-for i = 1:length(us_track)
-    dV_data = [dV_data; dvrk_xyz(frame_vec(i),:)];
-end
+dV_data = Trial4_Test_gooddV(:,[1:3]);
 %remove the fourth column from the TRUS data (the +1)
 TRUS_data(:,4) = [];
 figure; 
@@ -211,7 +282,7 @@ j=1;
 m=1;
 while hasFrame(vidReader)
 frame=readFrame(vidReader);
- CropRec = [1618,160,923,651];
+CropRec = [1618,160,923,651];
 frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
 frameGray=rgb2gray(frameCropped);
 imshow(frameGray);
@@ -223,7 +294,6 @@ end
 pause(0.01);
 m=m+1
 end
-
 
 
 
@@ -277,7 +347,7 @@ function tracks=TrackDetect(datapath)
         radmax=30;
         HughSensit=0.8;
 
-         CropRec = [1618,160,923,651];
+        CropRec = [1618,160,923,651];
         frameCropped=imcrop(frameRGB,CropRec); %Crops just the US portion of the image
         frameGray=rgb2gray(frameCropped);
 
