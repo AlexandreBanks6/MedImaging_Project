@@ -25,6 +25,10 @@ row3 = pinv(A_m)*[sum(zB.*xA); sum(zB.*yA); sum(zB.*zA); sum(zB)];
 T_BA = [row1';row2';row3'; 0 0 0 1];
 
 %To calculate point in coordinate system B using a point in coordinate system A, use P_b = T_BA*P_a
+%P_a must be of the form: [xA
+%                          yA
+%                          zA
+%                          1]
 
 
 

@@ -18,8 +18,8 @@ Trial3_Test = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\T
 Trial4_Registration = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\US.mp4"];
 Trial4_Test = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\US.mp4"];
 
-datapath_robot = Trial4_Registration(1);
-datapath_video= Trial4_Registration(2);
+datapath_robot = Trial3_Registration(1);
+datapath_video= Trial3_Registration(2);
 % datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
 %     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
 % datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
@@ -133,7 +133,7 @@ for iter = 3:numberOfIterations
     max_g = 0;
     while hasFrame(vidReader)
         frame=readFrame(vidReader);
-        CropRec=[1607.51,85.51,883.98,740.98];
+        CropRec= [1618,160,923,651];
         frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
         [max_g, max_h] = size(frameCropped);
         break;
@@ -142,6 +142,7 @@ for iter = 3:numberOfIterations
     %Convert US image coords into TRUS coords
     TRUS_Coordinates = [];
     l = 0.065; %length (and width) of ultrasound screen in meters
+    r = 0.0093; %radius of ultrasound probe in meters 
     frames_used_us_track = []; %indicates the index in US track that were used to calculate the transformation (training data)
     for i = 1:length(Min_Nums)
         mini = find(EuclidVec==Min_Nums(i));
@@ -149,7 +150,7 @@ for iter = 3:numberOfIterations
         mini_frame = frame_vec(find(EuclidVec==Min_Nums(i)));
         g = us_track(mini,1);
         h = us_track(mini,2);
-        TRUS_Coordinates=[TRUS_Coordinates; [-1*g/max_g*l, (r + (max_h-h)/max_h*l)*sin(2*pi*robot_data_resamp(mini_frame,4)/360), (r + (max_h-h)/max_h*l)*cos(2*pi*robot_data_resamp(mini_frame,4)/360)]];
+        TRUS_Coordinates = [TRUS_Coordinates; [-1*g/max_g*l,(r + (max_h-h)/max_h*l)*sin(2*pi*robot_data_resamp(mini_frame,4)/360), (r + (max_h-h)/max_h*l)*cos(2*pi*robot_data_resamp(mini_frame,4)/360)]];
     end
     dV_Coordinates = [];
     for i = 1:length(Min_Nums)
@@ -163,8 +164,10 @@ for iter = 3:numberOfIterations
     % dV_Point3 = dvrk_xyz(Min3_frame,:);
     % dV_Coordinates = [dV_Point1; dV_Point2; dV_Point3];
     %compute the transform
-    T_dV_TRUS = LeastSquaresNumericalTransform(TRUS_Coordinates,dV_Coordinates);
-    
+    tform = pcregistericp(pointCloud(TRUS_Coordinates),pointCloud(dV_Coordinates));
+    Rn=tform.Rotation;
+    tn=tform.Translation;
+    T_dV_TRUS=tform.A;
     %Use the transform to compute the da Vinci points based on TRUS points and
     %plot the error
     
@@ -178,7 +181,7 @@ for iter = 3:numberOfIterations
         h = test_us_track(i,2);
         theta = robot_data_resamp(frame_vec(i),4)*2*pi/360; %in radians
         %compute the transform of the da Vinci data
-        TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (r + (max_h-h)/max_h*l)*sin(theta), (max_h-h)/max_h*l*cos(theta), 1]')']; 
+        TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (r + (max_h-h)/max_h*l)*sin(theta), (r + (max_h-h)/max_h*l)*cos(theta), 1]')']; 
     end
     
     dV_data = [];
@@ -189,8 +192,9 @@ for iter = 3:numberOfIterations
     for i = 1:length(test_us_track)
         dV_data = [dV_data; dvrk_xyz(frame_vec(i),:)];
     end
-    %remove the fourth column from the TRUS data (the +1)
     TRUS_data(:,4) = [];
+
+    %remove the fourth column from the TRUS data (the +1)
 %     figure; 
 %     subplot(2,2,1); 
 %     plot(TRUS_data(:,1),"*")
@@ -229,7 +233,7 @@ j=1;
 m=1;
 while hasFrame(vidReader)
 frame=readFrame(vidReader);
-CropRec=[1607.51,85.51,883.98,740.98];
+CropRec = [1618,160,923,651];
 frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
 frameGray=rgb2gray(frameCropped);
 imshow(frameGray);
@@ -295,7 +299,7 @@ function tracks=TrackDetect(datapath)
         radmax=30;
         HughSensit=0.8;
 
-        CropRec=[1607.51,85.51,883.98,740.98];
+        CropRec = [1618,160,923,651];
         frameCropped=imcrop(frameRGB,CropRec); %Crops just the US portion of the image
         frameGray=rgb2gray(frameCropped);
 

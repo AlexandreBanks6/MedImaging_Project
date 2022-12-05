@@ -18,8 +18,8 @@ Trial3_Test = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\T
 Trial4_Registration = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\US.mp4"];
 Trial4_Test = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\US.mp4"];
 
-datapath_robot = Trial2_Registration(1);
-datapath_video= Trial2_Registration(2);
+datapath_robot = Trial4_Registration(1);
+datapath_video= Trial4_Registration(2);
 % datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
 %     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
 % datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
@@ -105,7 +105,8 @@ ZeroRows=us_track(:,1)==0;
 us_track=us_track(~ZeroRows,:); %Removes zeros from trajectory from US
 frame_vec=frame_vec(~ZeroRows,:); %Vector of frames corresponding to nonzero locations in US
 frame_vec=frame_vec;
-
+% frame_vec(19) = [];
+% us_track(19,:) = [];
 
 %% Now we do registration
 %Find three points with smallest Euclidean distance (after PCA)
@@ -122,7 +123,7 @@ dvrk_z=(dvrk_xyz(frame_vec,3)-mean(dvrk_xyz(frame_vec,3)))/std(dvrk_xyz(frame_ve
 
 EuclidVec=sqrt((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2);
 rmse_allTrials = [];
-numberOfIterations = 9;
+numberOfIterations = 10;
 for iter = 3:numberOfIterations
     num_points = iter; %Number of points to use for registration
     Min_Nums=mink(EuclidVec,num_points); %'iter' smallest indecis
@@ -150,7 +151,7 @@ for iter = 3:numberOfIterations
         mini_frame = frame_vec(find(EuclidVec==Min_Nums(i)));
         g = us_track(mini,1);
         h = us_track(mini,2);
-        TRUS_Coordinates = [TRUS_Coordinates; [-1*g/max_g*l,(r + (max_h-h)/max_h*l)*sin(2*pi*robot_data_resamp(mini_frame,4)/360), (r + (max_h-h)/max_h*l)*cos(2*pi*robot_data_resamp(mini_frame,4)/360)]];
+        TRUS_Coordinates = [TRUS_Coordinates; [-1*g/max_g*l,(r + (max_h-h)/max_h*l)*sin(-1*2*pi*robot_data_resamp(mini_frame,4)/360), (r + (max_h-h)/max_h*l)*cos(-1*2*pi*robot_data_resamp(mini_frame,4)/360)]];
     end
     dV_Coordinates = [];
     for i = 1:length(Min_Nums)
@@ -174,53 +175,41 @@ for iter = 3:numberOfIterations
     %are testing on new data 
     test_us_track = us_track; %make copy 
     test_us_track(frames_used_us_track,:) = []; %eliminate used points
+    test_frame_vec = frame_vec;
+    test_frame_vec(frames_used_us_track,:) = [];
     for i = 1:length(test_us_track)
         g = test_us_track(i,1);
         h = test_us_track(i,2);
-        theta = robot_data_resamp(frame_vec(i),4)*2*pi/360; %in radians
+        theta = robot_data_resamp(test_frame_vec(i),4)*2*pi/360; %in radians
         %compute the transform of the da Vinci data
-        TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (r + (max_h-h)/max_h*l)*sin(theta), (r + (max_h-h)/max_h*l)*cos(theta), 1]')']; 
+        TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (r + (max_h-h)/max_h*l)*sin(-1*theta), (r + (max_h-h)/max_h*l)*cos(-1*theta), 1]')']; 
     end
     
     dV_data = [];
     %Remove the values we used for generating the transform to ensure we
     %are testing on new data 
-    test_frame_vec = us_track; %make copy 
-    test_frame_vec(frames_used_us_track) = []; %eliminate used point
-    for i = 1:length(test_us_track)
-        dV_data = [dV_data; dvrk_xyz(frame_vec(i),:)];
+ 
+    for i = 1:length(test_frame_vec)
+        dV_data = [dV_data; dvrk_xyz(test_frame_vec(i),:)];
     end
     %remove the fourth column from the TRUS data (the +1)
     TRUS_data(:,4) = [];
-%     figure; 
-%     subplot(2,2,1); 
-%     plot(TRUS_data(:,1),"*")
-%     hold on 
-%     plot(dV_data(:,1), "*")
-%     legend(["TRUS Predicited", "True"])
-%     title("X Coordinates")
-%     subplot(2,2,2); 
-%     plot(TRUS_data(:,2),"*")
-%     hold on 
-%     plot(dV_data(:,2), "*")
-%     legend(["TRUS Predicited", "True"])
-%     title("Y Coordinates")
-%     subplot(2,2,3); 
-%     plot(TRUS_data(:,3),"*")
-%     hold on 
-%     plot(dV_data(:,3), "*")
-%     legend(["TRUS Predicited", "True"])
-%     title("Z Coordinates")
-%     
+
     %Calculate the RMSE of the predicted points to the actual points (dVRK
     %data)
-    error = rmse(TRUS_data, dV_data)*1000; %in mm
-    total_distance_error = (error(1)^2 + error(2)^2 + error(3)^2)^0.5;
+    error = (TRUS_data - dV_data)*1000; %in mm
+    total_distance_error = 0;
+    for i = 1:length(error)
+        x = error(i, :); 
+        intermediate = sqrt(x(1)^2+x(2)^2+x(3)^2);
+        total_distance_error = total_distance_error + intermediate; 
+    end
+    total_distance_error = total_distance_error/length(error);%mean
     rmse_allTrials = [rmse_allTrials;total_distance_error];
 end
 figure;
-plot([3:length(Min_Nums)], rmse_allTrials)
-ylabel('rmse')
+plot([3:length(Min_Nums)], rmse_allTrials,'-x',"MarkerSize",12)
+ylabel('RMSE')
 xlabel('number of points used')
 grid("on")
 %% Verifying the points

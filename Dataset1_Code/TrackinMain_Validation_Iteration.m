@@ -1,3 +1,4 @@
+%%MADE FOR TESTING SPECIFICALLY IF TRIAL 4 REGISTRATION HAD GOOD RESULTS. WAS DONE BY RECORDING GOOD FRAMES IN REGISTRATION4 AND THEN ONLY USING THOSE POINTS IN THE REGISTRATION
 clear 
 clc
 close all
@@ -202,99 +203,113 @@ dvrk_z=(dvrk_xyz(frame_vec,3)-mean(dvrk_xyz(frame_vec,3)))/std(dvrk_xyz(frame_ve
 [refcoeff,refscore,reflatent]=pca([dvrk_x,dvrk_y,dvrk_z]);
 
 EuclidVec=sqrt((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2);
-
-num_points = 3; %Number of points to use for registration
-Min_Nums=mink(EuclidVec,num_points); %Three smallest indecis
-
-%find maximum pixel values in US image 
-vidReader=VideoReader(datapath_video);
-max_h = 0; 
-max_g = 0;
-while hasFrame(vidReader)
-    frame=readFrame(vidReader);
-    CropRec = [1618,160,923,651];
-    frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
-    [max_g, max_h] = size(frameCropped);
-    break;
-end
-
-%Convert US image coords into TRUS coords
-TRUS_Coordinates = [];
-l = 0.065; %length (and width) of ultrasound screen in meters
-r = 0.0093; %radius of probe in meters
-for i = 1:length(Min_Nums)
-    mini = find(EuclidVec==Min_Nums(i));
-    mini_frame = frame_vec(find(EuclidVec==Min_Nums(i)));
-    g = us_track(mini,1);
-    h = us_track(mini,2);
-    TRUS_Coordinates = [TRUS_Coordinates; [-1*g/max_g*l,(r + (max_h-h)/max_h*l)*sin(2*pi*robot_data_resamp(mini_frame,4)/360), (r + (max_h-h)/max_h*l)*cos(2*pi*robot_data_resamp(mini_frame,4)/360)]];
-end
-dV_Coordinates = [];
-for i = 1:length(Min_Nums)
-    mini = find(EuclidVec==Min_Nums(i));
-    mini_frame = frame_vec(find(EuclidVec==Min_Nums(i)));
-    dV_Coordinates = [dV_Coordinates;dvrk_xyz(mini_frame,:)]
-end
-
-%compute the transform
-T_dV_TRUS = LeastSquaresNumericalTransform(TRUS_Coordinates,dV_Coordinates);
-
-%Use the transform to compute the da Vinci points based on TRUS points and
-%plot the error
-TRUS_data = []; %holds predicted da Vinci values
-for i = 1:length(Trial4_Test_goodUStrack)
-    g = Trial4_Test_goodUStrack(i,1);
-    h = Trial4_Test_goodUStrack(i,2);
-    theta = Trial4_Test_gooddV(i,4)*2*pi/360; %in radians
-    TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (r + (max_h-h)/max_h*l)*sin(theta), (r + (max_h-h)/max_h*l)*cos(theta), 1]')']; 
-end
-dV_data = Trial4_Test_gooddV(:,[1:3]);
-%remove the fourth column from the TRUS data (the +1)
-TRUS_data(:,4) = [];
-figure; 
-subplot(2,2,1); 
-plot(TRUS_data(:,1),"*")
-hold on 
-plot(dV_data(:,1), "*")
-legend(["TRUS Predicited", "True"])
-title("X Coordinates")
-subplot(2,2,2); 
-plot(TRUS_data(:,2),"*")
-hold on 
-plot(dV_data(:,2), "*")
-legend(["TRUS Predicited", "True"])
-title("Y Coordinates")
-subplot(2,2,3); 
-plot(TRUS_data(:,3),"*")
-hold on 
-plot(dV_data(:,3), "*")
-legend(["TRUS Predicited", "True"])
-title("Z Coordinates")
+rmse_allTrials = [];
+numberOfIterations = 9;
+%now try only using the good frames from this approach for points to use in
+%registration
+for iter = 3:numberOfIterations
+    num_points = iter; %Number of points to use for registration
+    Min_Nums=mink(EuclidVec,num_points); 
+    
+    %find maximum pixel values in US image 
+    vidReader=VideoReader(datapath_video);
+    max_h = 0; 
+    max_g = 0;
+    while hasFrame(vidReader)
+        frame=readFrame(vidReader);
+        CropRec = [1618,160,923,651];
+        frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
+        [max_g, max_h] = size(frameCropped);
+        break;
+    end
+    
+    %Convert US image coords into TRUS coords
+    TRUS_Coordinates = [];
+    l = 0.065; %length (and width) of ultrasound screen in meters
+    r = 0.0093; %radius of probe in meters
+    %use any frames designated as good 
+    %find which index that frame corresponds to in frame vec
+    %find the us track at that index 
+    for i = 1:length(Min_Nums)
+        mini = find(frame_vec==Trial4_Registration_goodFrames(1,i));
+        mini_frame = frame_vec(mini);
+        g = us_track(mini,1);
+        h = us_track(mini,2);
+        TRUS_Coordinates = [TRUS_Coordinates; [-1*g/max_g*l,(r + (max_h-h)/max_h*l)*sin(2*pi*robot_data_resamp(mini_frame,4)/360), (r + (max_h-h)/max_h*l)*cos(2*pi*robot_data_resamp(mini_frame,4)/360)]];
+    end
+    dV_Coordinates = [];
+    for i = 1:length(Min_Nums)
+        mini = find(frame_vec==Trial4_Registration_goodFrames(1,i));
+        mini_frame = frame_vec(mini);
+        dV_Coordinates = [dV_Coordinates;dvrk_xyz(mini_frame,:)]
+    end
+    
+    %compute the transform
+    T_dV_TRUS = LeastSquaresNumericalTransform(TRUS_Coordinates,dV_Coordinates);
+    
+    %Use the transform to compute the da Vinci points based on TRUS points and
+    %plot the error
+    TRUS_data = []; %holds predicted da Vinci values
+    for i = 1:length(Trial4_Test_goodUStrack)
+        g = Trial4_Test_goodUStrack(i,1);
+        h = Trial4_Test_goodUStrack(i,2);
+        theta = Trial4_Test_gooddV(i,4)*2*pi/360; %in radians
+        TRUS_data = [TRUS_data; (T_dV_TRUS*[-1*g/max_g*l, (r + (max_h-h)/max_h*l)*sin(theta), (r + (max_h-h)/max_h*l)*cos(theta), 1]')']; 
+    end
+    dV_data = Trial4_Test_gooddV(:,[1:3]);
+    %remove the fourth column from the TRUS data (the +1)
+    TRUS_data(:,4) = [];
+%     figure; 
+%     subplot(2,2,1); 
+%     plot(TRUS_data(:,1),"*")
+%     hold on 
+%     plot(dV_data(:,1), "*")
+%     legend(["TRUS Predicited", "True"])
+%     title("X Coordinates")
+%     subplot(2,2,2); 
+%     plot(TRUS_data(:,2),"*")
+%     hold on 
+%     plot(dV_data(:,2), "*")
+%     legend(["TRUS Predicited", "True"])
+%     title("Y Coordinates")
+%     subplot(2,2,3); 
+%     plot(TRUS_data(:,3),"*")
+%     hold on 
+%     plot(dV_data(:,3), "*")
+%     legend(["TRUS Predicited", "True"])
+%     title("Z Coordinates")
 
 %Calculate the RMSE of the predicted points to the actual points (dVRK
 %data)
-error = rmse(TRUS_data, dV_data)*1000; %in mm
-total_distance_error = (error(1)^2 + error(2)^2 + error(3)^2)^0.5
-%% Verifying the points
+    error = rmse(TRUS_data, dV_data)*1000; %in mm
+    total_distance_error = (error(1)^2 + error(2)^2 + error(3)^2)^0.5
+    rmse_allTrials = [rmse_allTrials;total_distance_error];
+end
 figure;
-vidReader=VideoReader(datapath_video);
-j=1;
-m=1;
-while hasFrame(vidReader)
-frame=readFrame(vidReader);
-CropRec = [1618,160,923,651];
-frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
-frameGray=rgb2gray(frameCropped);
-imshow(frameGray);
-if m==frame_vec(j)
-    viscircles(us_track(j,:),10);
-    pause(0.5);
-    j=j+1;
-end
-pause(0.01);
-m=m+1
-end
-
+plot([3:length(Min_Nums)], rmse_allTrials)
+ylabel('rmse')
+xlabel('number of points used')
+grid("on")
+% %% Verifying the points
+% figure;
+% vidReader=VideoReader(datapath_video);
+% j=1;
+% m=1;
+% while hasFrame(vidReader)
+% frame=readFrame(vidReader);
+% CropRec = [1618,160,923,651];
+% frameCropped=imcrop(frame,CropRec); %Crops just the US portion of the image
+% frameGray=rgb2gray(frameCropped);
+% imshow(frameGray);
+% if m==frame_vec(j)
+%     viscircles(us_track(j,:),10);
+%     pause(0.5);
+%     j=j+1;
+% end
+% pause(0.01);
+% m=m+1
+% end
+% 
 
 
 
