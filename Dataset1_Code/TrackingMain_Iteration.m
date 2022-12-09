@@ -18,8 +18,8 @@ Trial3_Test = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\T
 Trial4_Registration = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Registration\US.mp4"];
 Trial4_Test = ["C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\data.csv","C:\Users\randy\Downloads\MooreBanks_Results\MooreBanks_Results\Trial4\Test\US.mp4"];
 
-datapath_robot = Trial4_Registration(1);
-datapath_video= Trial4_Registration(2);
+datapath_robot = Trial1_Registration(1);
+datapath_video= Trial1_Registration(2);
 % datapath_robot=['C:\Users\playf\OneDrive\Documents\UBC\Alexandre_UNI_2022_2023\' ...
 %     'Semester1\ELEC_523_MedImaging\Project\MooreBanks_Results\Trial3\Registration\data.csv'];
 % datapath_video=['C:/Users/playf/OneDrive/Documents/UBC/Alexandre_UNI_2022_2023/Semester1'...
@@ -35,8 +35,6 @@ dvrk_xyz=robot_data_resamp(:,[1:3]); %End-effector xyz (this is the reference tr
 
 % Finding Tracks
 tracks=TrackDetect(datapath_video);
-
-
 
 
 %% ------------------------<Similarity Measure>----------------------------
@@ -122,7 +120,8 @@ dvrk_z=(dvrk_xyz(frame_vec,3)-mean(dvrk_xyz(frame_vec,3)))/std(dvrk_xyz(frame_ve
 [refcoeff,refscore,reflatent]=pca([dvrk_x,dvrk_y,dvrk_z]);
 
 EuclidVec=sqrt((score(:,1)-refscore(:,1)).^2+(score(:,2)-refscore(:,2)).^2);
-rmse_allTrials = [];
+mean_error_allTrials = [];
+std_allTrials = [];
 numberOfIterations = 10;
 for iter = 3:numberOfIterations
     num_points = iter; %Number of points to use for registration
@@ -194,24 +193,32 @@ for iter = 3:numberOfIterations
     end
     %remove the fourth column from the TRUS data (the +1)
     TRUS_data(:,4) = [];
-
-    %Calculate the RMSE of the predicted points to the actual points (dVRK
+    residual = (TRUS_data - dV_data)*1000; %in mm
+    %Calculate the Mean error of the predicted points to the actual points (dVRK
     %data)
-    error = (TRUS_data - dV_data)*1000; %in mm
     total_distance_error = 0;
-    for i = 1:length(error)
-        x = error(i, :); 
+    error = []; %defined as sqrt(x(1)^2 + x(2)^2+x(3)^3)
+    for i = 1:length(residual)
+        x = residual(i, :); 
         intermediate = sqrt(x(1)^2+x(2)^2+x(3)^2);
+        error = [error; intermediate];
         total_distance_error = total_distance_error + intermediate; 
     end
-    total_distance_error = total_distance_error/length(error);%mean
-    rmse_allTrials = [rmse_allTrials;total_distance_error];
+    mean_error = total_distance_error/length(residual); %mean
+    %Calculate the Standard deviation of the trial 
+    std_dev = std(error); %std dev of the error
+    mean_error_allTrials = [mean_error_allTrials;mean_error];
+    std_allTrials = [std_allTrials; std_dev];
+
 end
 figure;
-plot([3:length(Min_Nums)], rmse_allTrials,'-x',"MarkerSize",12)
-ylabel('RMSE')
+plot([3:length(Min_Nums)], mean_error_allTrials,'-x',"MarkerSize",12)
+ylabel('Mean Error')
 xlabel('number of points used')
 grid("on")
+%average std 
+std_dev = mean(std_allTrials)
+
 %% Verifying the points
 figure;
 vidReader=VideoReader(datapath_video);
